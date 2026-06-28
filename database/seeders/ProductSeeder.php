@@ -39,6 +39,13 @@ class ProductSeeder extends Seeder
             $name = "Sample Product {$i}";
             $slug = Str::slug($name);
 
+            $price = rand(100, 2000);
+
+            // 10% - 50%
+            $discount = rand(10, 50);
+
+            $discountPrice = round($price - (($price * $discount) / 100));
+
             $product = Product::create([
                 'name'             => $name,
                 'slug'             => $slug,
@@ -46,8 +53,8 @@ class ProductSeeder extends Seeder
                 'category_id'      => $category->id,
                 'subcategory_id'   => $subcategory->id,
                 'brand_id'         => $brand->id,
-                'price'            => rand(100, 2000),
-                'discount_price'   => rand(50, 1000),
+                'price'            => $price,
+                'discount_price'   => $discountPrice,
                 'stock_quantity'   => rand(5, 50),
                 'min_stock'        => 5,
                 'summary'          => "This is a summary of {$name}",
