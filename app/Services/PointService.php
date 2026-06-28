@@ -1,0 +1,231 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use App\Models\User;
+use App\Models\Product;
+use App\Models\PointTransaction;
+
+class PointService
+{
+    // 1. Referral Bonus
+    public function referralBonus($user, $orderReg, $orderPoint)
+    {
+        DB::transaction(function () use ($user, $orderReg, $orderPoint) {
+
+            $referrerId = $user->referrer_id ?? ($user->referrer ? $user->referrer->id : null);
+
+            if (!$referrerId) {
+                Log::warning("Referral system: No referrer found for user ID - " . $user->id);
+                return;
+            }
+
+            $referrer = User::lockForUpdate()->find($referrerId);
+            if (!$referrer) return;
+
+            if ($referrer) {
+
+                $exists = PointTransaction::where('user_id', $referrer->id)
+                    ->where('source', 'referral')
+                    ->where('reference_id', (string)$orderReg)
+                    ->exists();
+
+                if ($exists) return;
+
+                // 1 point = 2 bonus
+                $bonusAmount = (int)$orderPoint * 1;
+
+                // optional safety check
+                if ($bonusAmount <= 0) return;
+
+                PointTransaction::create([
+                    'user_id'      => $referrer->id,
+                    'type'         => 'bonus',
+                    'points'       => 0,
+                    'bonus_amount' => $bonusAmount,
+                    'bonus_status' => 'credit',
+                    'source'       => 'referral',
+                    'reference_id' => (string)$orderReg,
+                    'note'         => 'Direct referral bonus from User ID: ' . $orderReg,
+                ]);
+
+                $referrer->increment('wallet_balance', $bonusAmount);
+            }
+        });
+    }
+
+    // 2. Update Count
+    public function updateCounts($user, $productId)
+    {
+        DB::transaction(function () use ($user, $productId) {
+
+            $user = User::lockForUpdate()->find($user->id);
+            if (!$user) return;
+
+            $points = Product::find($productId);
+            if (!$points) return;
+
+            $this->addPointsToUpline($user, $points->point);
+            $this->addReferralPointsToUpline($user, $points->point);
+        });
+    }
+
+    // 4. Add point to upline
+    public function addPointsToUpline($user, $points)
+    {
+        $current = $user;
+
+        while ($current->parent_id) {
+
+            $parent = User::lockForUpdate()->find($current->parent_id);
+            if (!$parent) break;
+            // INACTIVE USER হলে skip করবে
+            // if (!$parent->isActive()) {
+            //     $current = $parent;
+            //     continue;
+            // }
+
+            // LEFT SIDE
+            if ($current->id == $parent->left_child_id) {
+                $parent->left_total_point += $points;
+                $parent->left_carry_point += $points;
+            }
+
+            // RIGHT SIDE
+            if ($current->id == $parent->right_child_id) {
+                $parent->right_total_point += $points;
+                $parent->right_carry_point += $points;
+            }
+
+            // SAVE FIRST
+            $parent->save();
+
+            // MATCH AFTER SAVE
+            $this->processMatching($parent);
+
+            $current = $parent;
+        }
+    }
+
+    // 5. Propagation Match
+    public function processMatching(User $user)
+    {
+        $user = User::lockForUpdate()->find($user->id);
+
+        // INACTIVE USER হলে skip
+        if (!$user || !$user->isActive()) { return; }
+
+        $left  = (int) $user->left_carry_point;
+        $right = (int) $user->right_carry_point;
+
+        if ($left < 100 || $right < 100) return;
+
+        // কত pair possible
+        $matches = intdiv(min($left, $right), 100);
+
+        if ($matches <= 0) return;
+
+        /*
+        |--------------------------------------------------------------------------
+        | Daily Matching Limit
+        |--------------------------------------------------------------------------
+        | Daily max 50 matching
+        */
+        $todayMatched = PointTransaction::where('user_id', $user->id)
+            ->where('source', 'matching')
+            ->whereDate('created_at', today())
+            ->sum('matching_count') ?? 0;
+
+        $remainingMatch = max(0, 50 - $todayMatched);
+
+        // Daily limit full
+        if ($remainingMatch <= 0) { return; }
+
+        // Final allowed match
+        $matches = min($matches, $remainingMatch);
+
+        if ($matches <= 0) return;
+
+        $usedPoints = $matches * 100;
+        $bonus      = $matches * 100;
+
+        // Deduct carry (VERY IMPORTANT)
+        $user->left_carry_point  -= $usedPoints;
+        $user->right_carry_point -= $usedPoints;
+
+        // Update stats
+        $user->total_match += $matches;
+        // $user->own_total_point += $usedPoints * 2;
+
+        // Wallet update
+        $user->wallet_balance += $bonus;
+
+        $user->save();
+
+        // Transaction log
+        PointTransaction::create([
+            'user_id'           => $user->id,
+            'type'              => 'matching',
+            'points'            => 0,
+            'matching_count'    => $matches,
+            'bonus_amount'      => $bonus,
+            'bonus_status'      => 'credit',
+            'source'            => 'matching',
+            'reference_id'      => null,
+            'note'              => "Matching Bonus",
+        ]);
+    }
+
+    public function addReferralPointsToUpline($user, $points)
+    {
+        $current = $user;
+
+        while ($current->parent_id) {
+
+            $parent = User::lockForUpdate()->find($current->parent_id);
+
+            if (!$parent) break;
+
+            // 1. Update own total point
+            // $parent->own_total_point += $points;
+            // $parent->save();
+
+            // 2. Insert transaction log
+            PointTransaction::create([
+                'user_id'      => $parent->id,
+                'type'         => 'earn',
+                'points'       => $points,
+                'bonus_amount' => 0,
+                'bonus_status' => 'credit',
+                'source'       => 'referral',
+                'reference_id' => $user->id,
+                'note'         => 'Referral point from user ID: ' . $user->id,
+            ]);
+
+            $current = $parent;
+        }
+    }
+
+    // 7. Distribute order point
+    public function distributeOrderPoints(User $user, $points, $orderReg)
+    {
+        DB::transaction(function () use ($user, $points, $orderReg)
+        {
+            $user = User::lockForUpdate()->find($user->id);
+            $user->increment('own_total_point', $points);
+
+            PointTransaction::create([
+                'user_id'        => $user->id,
+                'type'           => 'earn',
+                'points'         => $points,
+                'bonus_amount'   => 0,
+                'bonus_status'   => 'credit',
+                'source'         => 'purchase',
+                'reference_id'   => $orderReg,
+                'note'           => 'Own purchase points for order: ' . $orderReg,
+            ]);
+        });
+    }
+}
