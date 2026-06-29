@@ -71,7 +71,7 @@ class WalletController extends Controller
         }
     }
 
-    public function transection()
+    public function transaction()
     {
         try {
             // Get logged in user
@@ -104,7 +104,7 @@ class WalletController extends Controller
         }
     }
 
-    public function processingTransection()
+    public function processingTransaction()
     {
         try {
             // Get logged in user
@@ -359,7 +359,7 @@ class WalletController extends Controller
         ], 422);
     }
 
-    public function transectionDelete($id)
+    public function transactionDelete($id)
     {
         try {
 

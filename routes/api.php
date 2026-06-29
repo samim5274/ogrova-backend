@@ -281,12 +281,12 @@ use App\Http\Controllers\Finance\WalletController;
 Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('finance')->group(function () {
         Route::get('/', [ WalletController::class, 'index']);
-        Route::get('/transaction', [ WalletController::class, 'transection']);
-        Route::get('/admin/transaction', [ WalletController::class, 'processingTransection']);
+        Route::get('/transaction', [ WalletController::class, 'transaction']);
+        Route::get('/admin/transaction', [ WalletController::class, 'processingTransaction']);
         Route::post('/withdraw/store', [ WalletController::class, 'store']);
         Route::post('/withdraw/verify-otp', [ WalletController::class, 'verifyOtp']);
-        Route::delete('/transaction/{id}', [ WalletController::class, 'transectionDelete']);
-        Route::get('/transection-details/{transaction_id}/{user_id}', [WalletController::class, 'getTransaction']);
+        Route::delete('/transaction/{id}', [ WalletController::class, 'transactionDelete']);
+        Route::get('/transaction-details/{transaction_id}/{user_id}', [WalletController::class, 'getTransaction']);
         Route::put('/update-status/{id}', [WalletController::class, 'updateStatus']);
     });
 });
