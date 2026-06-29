@@ -26,11 +26,13 @@ class EcommerceProductController extends Controller
     public function index(){
         try{
             $products = Product::with([
-                    'category:id,name',
+                    'category:id,name,slug',
                     'subcategory:id,name',
                     'brand:id,name',
                     'images:id,product_id,image_path,is_primary'
                 ])
+                ->where('is_active', 1)
+                ->where('approval_status', 1)
                 ->latest()
                 ->get()
                 ->groupBy('category_id')
@@ -120,6 +122,41 @@ class EcommerceProductController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => "Product can not fetched. Error: " . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function getCategoryProducts($id) {
+        try {
+
+            $products = Product::with([
+                'category:id,name',
+                'subcategory:id,name',
+                'brand:id,name',
+                'variants',
+                'images'
+            ])
+            ->where('is_active', 1)
+            ->where('approval_status', 1)
+            ->where('category_id', $id)
+            ->latest()
+            ->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Category products fetched successfully.',
+                'data' => $products
+            ], 200);
+
+        } catch (\Throwable $e) {
+             Log::error('Category product fetch failed.', [
+                'category_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong while fetching category products.',
             ], 500);
         }
     }
