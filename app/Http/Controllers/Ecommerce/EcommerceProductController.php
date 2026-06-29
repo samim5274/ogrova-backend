@@ -140,7 +140,7 @@ class EcommerceProductController extends Controller
             ->where('approval_status', 1)
             ->where('category_id', $id)
             ->latest()
-            ->get();
+            ->paginate(20);
 
             return response()->json([
                 'success' => true,
