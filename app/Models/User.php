@@ -154,4 +154,9 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Vendor::class, 'vendors_id');
     }
+
+    public function couponUsages()
+    {
+        return $this->hasMany(CouponUsage::class);
+    }
 }

@@ -44,4 +44,14 @@ class ProductCategory extends Model
     {
         return $this->hasMany(Product::class);
     }
+
+    public function coupons()
+    {
+        return $this->belongsToMany(
+            Coupon::class,
+            'coupon_categories',
+            'category_id',
+            'coupon_id'
+        );
+    }
 }

@@ -137,4 +137,12 @@ class Product extends Model
     {
         return $query->active()->approved();
     }
+
+    public function coupons()
+    {
+        return $this->belongsToMany(
+            Coupon::class,
+            'coupon_products'
+        );
+    }
 }

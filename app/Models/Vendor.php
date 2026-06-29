@@ -70,4 +70,12 @@ class Vendor extends Model
         return $this->hasMany(User::class, 'vendors_id');
     }
 
+    public function coupons()
+    {
+        return $this->belongsToMany(
+            Coupon::class,
+            'coupon_vendors'
+        );
+    }
+
 }
