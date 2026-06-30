@@ -31,7 +31,9 @@ class Order extends Model
 
         'status',
 
+        'contact_name',
         'contact_number',
+        'contact_email',
         'shipping_address',
 
         'confirmed_at',

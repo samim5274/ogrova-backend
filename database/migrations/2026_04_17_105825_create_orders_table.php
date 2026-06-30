@@ -52,7 +52,9 @@ return new class extends Migration
             $table->boolean('referral_bonus_paid')->default(false);
 
             // 6. Logistics & Contact
+            $table->string('contact_name');
             $table->string('contact_number')->nullable();
+            $table->string('contact_email')->nullable();
             $table->text('shipping_address')->nullable();
 
             // 7. Tracking Timestamps (For Analytics & UI Timeline)

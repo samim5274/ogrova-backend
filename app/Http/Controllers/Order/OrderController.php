@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Order;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -54,49 +55,73 @@ class OrderController extends Controller
             ], 401);
         }
 
-        $cartItems = Cart::where('reg', $reg)->get();
-        if (!$cartItems->count()) {
+        $validator = Validator::make($request->all(), [
+            'name'           => 'required|string|max:255',
+            'phone'          => 'required|string|max:20',
+            'email'          => 'nullable|email|max:255',
+            'user_id'        => 'required|string|max:50',
+            'address'        => 'required|string|max:1000',
+            'same_address'   => 'nullable|boolean',
+            'save_info'      => 'nullable|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        $cartItems = Cart::where('reg', $reg)->where('user_id', $user->id)->get();
+        if ($cartItems->isEmpty()) {
             return response()->json([
                 'success' => false,
                 'message' => "Cart items is empty.",
             ]);
         }
 
-        $order = Order::where('reg', $reg)->first();
-        if ($order) {
+        if (Order::where('reg', $reg)->exists()) {
             return response()->json([
                 'success' => false,
                 'message' => "Order already created.",
             ]);
         }
 
-        $amount = $cartItems->sum(fn($item) => $item->price * $item->quantity);
-        $point = $cartItems->sum(fn($item) => $item->point * $item->quantity);
-        $discount = $cartItems->sum(fn($item) => $item->discount * $item->quantity);
-
-        $tran_id = uniqid('SSLCZ_');
+        $amount     = $cartItems->sum(fn($item) => $item->price * $item->quantity);
+        $point      = $cartItems->sum(fn($item) => $item->point * $item->quantity);
+        $discount   = $cartItems->sum(fn($item) => $item->discount * $item->quantity);
 
         $order = Order::create([
-            'reg' => $reg,
-            'date' => now()->toDateString(),
-            'user_id' => $user->id,
+            'reg'               => $reg,
+            'date'              => now()->toDateString(),
+            'user_id'           => $user->id,
 
-            'amount' => $amount,
-            'discount' => $discount,
-            'payable_amount' => $amount,
-            'currency' => 'BDT',
-            'point' => (int) $point,
+            'amount'            => $amount,
+            'discount'          => $discount,
+            'payable_amount'    => $amount - $discount,
+            'currency'          => 'BDT',
+            'point'             => (int) $point,
 
-            'payment_method' => "Cash",
-            'transaction_id' => $tran_id,
-            'is_paid' => false,
-            'paid_at' => NULL,
+            'payment_method'    => "Cash",
+            'transaction_id'    => uniqid('SSLCZ_'),
+            'is_paid'           => false,
+            'paid_at'           => NULL,
 
-            'status' => 'Pending',
+            'status'            => 'Pending',
 
-            'contact_number' => $user->phone,
-            'shipping_address' => $user->present_address,
+            'contact_name'      => $request->name,
+            'contact_number'    => $request->phone,
+            'contact_email'     => $request->email,
+            'shipping_address'  => $request->address,
         ]);
+
+        // Optional: Save latest address in profile
+        if ($request->boolean('save_info')) {
+            $user->update([
+                'present_address' => $request->address,
+            ]);
+        }
 
         return response()->json([
             'success' => false,
