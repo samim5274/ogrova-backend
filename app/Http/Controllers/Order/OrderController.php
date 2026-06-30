@@ -62,6 +62,8 @@ class OrderController extends Controller
             'user_id'        => 'required|string|max:50',
             'address'        => 'required|string|max:1000',
             'remarks'        => 'nullable|string|max:1000',
+            'payment_number'          => 'required|string|max:20',
+            'payment_transaction_code'=> 'required|string|max:255',
             'same_address'   => 'nullable|boolean',
             'save_info'      => 'nullable|boolean',
         ]);
@@ -94,28 +96,31 @@ class OrderController extends Controller
         $discount   = $cartItems->sum(fn($item) => $item->discount * $item->quantity);
 
         $order = Order::create([
-            'reg'               => $reg,
-            'date'              => now()->toDateString(),
-            'user_id'           => $user->id,
+            'reg'                       => $reg,
+            'date'                      => now()->toDateString(),
+            'user_id'                   => $user->id,
 
-            'amount'            => $amount,
-            'discount'          => $discount,
-            'payable_amount'    => $amount - $discount,
-            'currency'          => 'BDT',
-            'point'             => (int) $point,
+            'amount'                    => $amount,
+            'discount'                  => $discount,
+            'payable_amount'            => $amount - $discount,
+            'currency'                  => 'BDT',
+            'point'                     => (int) $point,
 
-            'payment_method'    => "Cash",
-            'transaction_id'    => uniqid('SSLCZ_'),
-            'payment_status'    => "Pending",
-            'paid_at'           => NULL,
+            'payment_method'            => "Cash",
+            'transaction_id'            => uniqid('SSLCZ_'),
+            'payment_status'            => "Pending",
+            'paid_at'                   => NULL,
 
-            'status'            => 'Pending',
+            'status'                    => 'Pending',
 
-            'contact_name'      => $request->name,
-            'contact_number'    => $request->phone,
-            'contact_email'     => $request->email,
-            'shipping_address'  => $request->address,
-            'remarks'           => $request->remarks ?? "N/A",
+            'contact_name'              => $request->name,
+            'contact_number'            => $request->phone,
+            'contact_email'             => $request->email,
+            'shipping_address'          => $request->address,
+            'remarks'                   => $request->remarks ?? "N/A",
+
+            'payment_number'            => $request->payment_number,
+            'payment_transaction_code'  => $request->payment_transaction_code,
         ]);
 
         // Optional: Save latest address in profile

@@ -73,6 +73,9 @@ class Order extends Model
         'shipping_address',
         'remarks',
 
+        'payment_number',
+        'payment_transaction_code',
+
         /*
         |--------------------------------------------------------------------------
         | Timeline
