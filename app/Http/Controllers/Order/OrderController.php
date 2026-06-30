@@ -61,6 +61,7 @@ class OrderController extends Controller
             'email'          => 'nullable|email|max:255',
             'user_id'        => 'required|string|max:50',
             'address'        => 'required|string|max:1000',
+            'remarks'        => 'nullable|string|max:1000',
             'same_address'   => 'nullable|boolean',
             'save_info'      => 'nullable|boolean',
         ]);
@@ -105,7 +106,7 @@ class OrderController extends Controller
 
             'payment_method'    => "Cash",
             'transaction_id'    => uniqid('SSLCZ_'),
-            'is_paid'           => false,
+            'payment_status'    => "Pending",
             'paid_at'           => NULL,
 
             'status'            => 'Pending',
@@ -114,6 +115,7 @@ class OrderController extends Controller
             'contact_number'    => $request->phone,
             'contact_email'     => $request->email,
             'shipping_address'  => $request->address,
+            'remarks'           => $request->remarks ?? "N/A",
         ]);
 
         // Optional: Save latest address in profile
@@ -242,7 +244,7 @@ class OrderController extends Controller
 
             if ($statusKey === 'delivered') {
                 $updateData['paid_at'] = now()->toDateString();
-                $updateData['is_paid'] = 1;
+                $updateData['payment_status'] = "Paid";
             }
 
             $order->update($updateData);

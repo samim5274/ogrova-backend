@@ -12,30 +12,72 @@ class Order extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        /*
+        |--------------------------------------------------------------------------
+        | Identification
+        |--------------------------------------------------------------------------
+        */
         'reg',
         'slug',
         'date',
 
+        /*
+        |--------------------------------------------------------------------------
+        | Relationship
+        |--------------------------------------------------------------------------
+        */
         'user_id',
+        'coupon_id',
+        'coupon_code',
 
+        /*
+        |--------------------------------------------------------------------------
+        | Financial
+        |--------------------------------------------------------------------------
+        */
         'amount',
+        'coupon_discount',
+        'shipping_charge',
+        'tax',
         'discount',
         'payable_amount',
         'currency',
         'point',
 
+        /*
+        |--------------------------------------------------------------------------
+        | Payment
+        |--------------------------------------------------------------------------
+        */
         'payment_method',
         'transaction_id',
-        'is_paid',
+        'payment_status',
         'paid_at',
 
+        /*
+        |--------------------------------------------------------------------------
+        | Order Status
+        |--------------------------------------------------------------------------
+        */
         'status',
+        'referral_bonus_paid',
 
+        /*
+        |--------------------------------------------------------------------------
+        | Shipping
+        |--------------------------------------------------------------------------
+        */
         'contact_name',
         'contact_number',
         'contact_email',
         'shipping_address',
+        'remarks',
 
+        /*
+        |--------------------------------------------------------------------------
+        | Timeline
+        |--------------------------------------------------------------------------
+        */
         'confirmed_at',
         'shipped_at',
         'delivered_at',
@@ -44,16 +86,23 @@ class Order extends Model
 
     protected $casts = [
         'date' => 'date',
+
         'amount' => 'decimal:2',
+        'coupon_discount' => 'decimal:2',
+        'shipping_charge' => 'decimal:2',
+        'tax' => 'decimal:2',
         'discount' => 'decimal:2',
         'payable_amount' => 'decimal:2',
-        'is_paid' => 'boolean',
+
+        'point' => 'integer',
+
+        'referral_bonus_paid' => 'boolean',
+
         'paid_at' => 'datetime',
         'confirmed_at' => 'datetime',
         'shipped_at' => 'datetime',
         'delivered_at' => 'datetime',
         'cancelled_at' => 'datetime',
-        'point' => 'integer',
     ];
 
     // Auto slug generate
@@ -62,25 +111,31 @@ class Order extends Model
         parent::boot();
 
         static::creating(function ($order) {
-            if (empty($order->slug)) {
-                $order->slug = self::generateSlug($order);
+            if (blank($order->slug)) {
+                $order->slug = static::generateSlug($order);
             }
         });
     }
 
-    private static function generateSlug($order)
+    private static function generateSlug(self $order): string
     {
-        $base = Str::slug('order-' . $order->reg . '-' . Str::uuid());
+        do {
+            $slug = Str::slug(
+                'order-' . $order->reg . '-' . Str::random(8)
+            );
+        } while (static::where('slug', $slug)->exists());
 
-        // ensure unique slug
-        $count = static::where('slug', 'like', "{$base}%")->count();
-
-        return $count ? "{$base}-" . ($count + 1) : $base;
+        return $slug;
     }
 
     // Relation
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function coupon()
+    {
+        return $this->belongsTo(Coupon::class, 'coupon_id');
     }
 }

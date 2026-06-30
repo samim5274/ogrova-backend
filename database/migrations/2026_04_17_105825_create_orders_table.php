@@ -22,20 +22,33 @@ return new class extends Migration
             // 2. Relationship
             $table->foreignId('user_id')->constrained('users')->onDelete('restrict');
 
-            // 3. Financial Data (Money Matters)
-            $table->double('amount')->default(0);
+            // 3. Coupon
+            $table->unsignedBigInteger('coupon_id')->nullable()->index();
+
+            $table->string('coupon_code')->nullable();
+
+            // 4. Financial Data (Money Matters)
+            $table->decimal('amount', 12, 2)->default(0);
+            $table->decimal('coupon_discount', 12, 2)->default(0);
+            $table->decimal('shipping_charge', 12, 2)->default(0);
+            $table->decimal('tax', 12, 2)->default(0);
             $table->decimal('discount', 12, 2)->default(0.00);
             $table->decimal('payable_amount', 12, 2)->default(0.00);
-            $table->string('currency', 20)->nullable();
+            $table->string('currency', 20)->nullable()->default("BDT");
             $table->integer('point')->default(0);
 
-            // 4. Payment Information
+            // 5. Payment Information
             $table->string('payment_method')->nullable();
             $table->string('transaction_id')->nullable()->unique();
-            $table->boolean('is_paid')->default(false);
+            $table->enum('payment_status', [
+                'Pending',
+                'Paid',
+                'Failed',
+                'Refunded'
+            ])->default('Pending');
             $table->timestamp('paid_at')->nullable();
 
-            // 5. Order Status & Tracking
+            // 6. Order Status & Tracking
             $table->enum('status', [
                 'Pending',
                 'Confirmed',
@@ -51,13 +64,14 @@ return new class extends Migration
 
             $table->boolean('referral_bonus_paid')->default(false);
 
-            // 6. Logistics & Contact
+            // 7. Shipping
             $table->string('contact_name');
             $table->string('contact_number')->nullable();
             $table->string('contact_email')->nullable();
             $table->text('shipping_address')->nullable();
+            $table->string('remarks')->nullable();
 
-            // 7. Tracking Timestamps (For Analytics & UI Timeline)
+            // 8. Tracking Timestamps (For Analytics & UI Timeline)
             $table->timestamp('confirmed_at')->nullable();
             $table->timestamp('shipped_at')->nullable();
             $table->timestamp('delivered_at')->nullable();

@@ -18,6 +18,11 @@ class Coupon extends Model
         'end_date' => 'datetime',
     ];
 
+    public function orders()
+    {
+        return $this->hasMany(Order::class, 'coupon_id');
+    }
+
     public function usages()
     {
         return $this->hasMany(CouponUsage::class);

@@ -42,9 +42,9 @@ class ProductSeeder extends Seeder
             $price = rand(100, 2000);
 
             // 10% - 50%
-            $discount = rand(10, 50);
+            $discount = rand(0, (int)($price * 0.5));
 
-            $discountPrice = round($price - (($price * $discount) / 100));
+            $discountPrice = $price - $discount;
 
             $product = Product::create([
                 'name'             => $name,

@@ -174,11 +174,11 @@ class CustomerController extends Controller
     {
         $validated = $request->validate([
             'name'              => ['required','string','max:255'],
-            
+
             'email'             => ['required','email','max:255','unique:users,email'],
             'phone'             => ['required','string','max:30','unique:users,phone'],
             'national_id'       => ['required', 'string', 'max:50', 'unique:users,national_id'], // Added unique
-            
+
             'dob'               => ['nullable','date'],
             'gender'            => ['nullable','in:male,female,other'],
             'blood_group'       => ['nullable','string','max:10'],
@@ -206,26 +206,26 @@ class CustomerController extends Controller
             'name.required'             => 'The user name is required.',
             'email.required'            => 'Email address is required.',
             'email.unique'              => 'This email is already registered in the system.',
-            
+
             'phone.required'            => 'Phone number is required.',
             'phone.unique'              => 'This phone number is already in use.',
-            
+
             'national_id.required'      => 'National ID (NID) number is required.',
             'national_id.unique'        => 'This National ID (NID) has already been registered.',
-            
+
             'product_id.required'       => 'Please select a package or product.',
             'product_id.exists'         => 'The selected product is invalid.',
-            
+
             'password.required'         => 'Password is required.',
             'password.confirmed'        => 'Password and confirmation do not match.',
             'password.min'              => 'Password must be at least 8 characters long.',
-            
+
             'root_user_id.required'     => 'Placement user ID is required.',
             'root_user_id.exists'       => 'The selected root user does not exist.',
-            
+
             'position.required'         => 'Please select a placement position (Left/Right).',
             'position.in'               => 'Position must be either Left or Right.',
-            
+
             'photo.image'               => 'The file must be an image.',
             'photo.max'                 => 'The image size must not exceed 2MB.',
         ]);
@@ -234,7 +234,7 @@ class CustomerController extends Controller
 
         try {
             return DB::transaction(function () use ($request, $validated, $pointService, &$photoPath) {
-                
+
                 // Find refer user
                 $referUser = User::where('user_id', $validated['refer_id'])->firstOrFail();
 
@@ -275,7 +275,7 @@ class CustomerController extends Controller
 
         } catch (Exception $e) {
             if ($photoPath) Storage::disk('public')->delete($photoPath);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage()
@@ -297,7 +297,7 @@ class CustomerController extends Controller
         if ($position === 'left' && $rootUser->left_child_id) {
             throw new Exception('The left position is already occupied.');
         }
-        
+
         if ($position === 'right' && $rootUser->right_child_id) {
             throw new Exception('The right position is already occupied.');
         }
@@ -316,7 +316,7 @@ class CustomerController extends Controller
         } else {
             $rootUser->right_child_id = $user->id;
         }
-        
+
         $rootUser->save();
     }
 
@@ -587,7 +587,7 @@ class CustomerController extends Controller
 
                 'payment_method' => "Cash",
                 'transaction_id' => $tran_id,
-                'is_paid' => false,
+                'payment_status' => 'Pending',
                 'paid_at' => null,
 
                 'status' => 'Pending',
@@ -658,7 +658,7 @@ class CustomerController extends Controller
                 'message' => 'User not found',
             ], 404);
         }
-        
+
         $validated = $request->validate([
             'name'        => ['required','string','max:255'],
 
@@ -676,7 +676,7 @@ class CustomerController extends Controller
                 'required','string','max:50',
                 Rule::unique('users','national_id')->ignore($user->id)
             ],
-            
+
             'dob'               => ['nullable','date'],
             'gender'            => ['nullable','in:male,female,other,Male,Female,Other'],
             'blood_group'       => ['nullable','string','max:10'],
@@ -923,7 +923,7 @@ class CustomerController extends Controller
                 ->sum('net_amount');
 
             $networkStats = $this->getUserNetworkStats($userId);
-            
+
             // Example: calculate user stats
             $status = [
                 'total_member' => $networkStats['total_member'],
@@ -950,7 +950,7 @@ class CustomerController extends Controller
 
                     'credit'         => (float) $wallet->credit,
                     'debit'          => (float) $wallet->debit,
-                    
+
                     'earn'           => (float) $wallet->earn,
                     'spend'          => (float) $wallet->spend,
                     'bonus'          => (float) $wallet->bonus,
@@ -980,7 +980,7 @@ class CustomerController extends Controller
     {
         // Cache wrapping with dynamic key - 10 minutes cache runtime deya holo
         return Cache::remember("network_stats_{$userId}", now()->addMinutes(10), function () use ($userId) {
-            
+
             // 1. Direct sponsor count via indexed query fast execution
             $totalRefer = User::where('refer_id', $userId)->count();
 

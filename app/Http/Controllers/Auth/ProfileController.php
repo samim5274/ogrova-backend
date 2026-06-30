@@ -696,7 +696,7 @@ class ProfileController extends Controller
 
                 'payment_method' => "Cash",
                 'transaction_id' => $tran_id,
-                'is_paid' => false,
+                'payment_status' => 'Pending',
                 'paid_at' => null,
 
                 'status' => 'Pending',
