@@ -159,4 +159,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(CouponUsage::class);
     }
+
+    public function delivaryCharge()
+    {
+        return $this->hasMany(DeliveryChargePayment::class);
+    }
 }

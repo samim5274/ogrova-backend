@@ -73,9 +73,6 @@ class Order extends Model
         'shipping_address',
         'remarks',
 
-        'payment_number',
-        'payment_transaction_code',
-
         /*
         |--------------------------------------------------------------------------
         | Timeline
@@ -140,5 +137,10 @@ class Order extends Model
     public function coupon()
     {
         return $this->belongsTo(Coupon::class, 'coupon_id');
+    }
+
+    public function delivaryCharge()
+    {
+        return $this->hasMany(DeliveryChargePayment::class);
     }
 }

@@ -71,9 +71,6 @@ return new class extends Migration
             $table->text('shipping_address')->nullable();
             $table->string('remarks')->nullable();
 
-            $table->string('payment_number');
-            $table->string('payment_transaction_code')->nullable();
-
             // 8. Tracking Timestamps (For Analytics & UI Timeline)
             $table->timestamp('confirmed_at')->nullable();
             $table->timestamp('shipped_at')->nullable();

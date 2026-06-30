@@ -15,6 +15,7 @@ use App\Models\Order;
 use App\Models\PointTransaction;
 use App\Services\PointService;
 use App\Models\Cart;
+use App\Models\DeliveryChargePayment;
 
 class OrderController extends Controller
 {
@@ -62,10 +63,24 @@ class OrderController extends Controller
             'user_id'        => 'required|string|max:50',
             'address'        => 'required|string|max:1000',
             'remarks'        => 'nullable|string|max:1000',
-            'payment_number'          => 'required|string|max:20',
-            'payment_transaction_code'=> 'required|string|max:255',
+            
             'same_address'   => 'nullable|boolean',
             'save_info'      => 'nullable|boolean',
+
+            // Main Payment Method
+            'payment_method' => 'required|in:cod,advance',
+
+            // Delivery Charge Payment Method
+            'd_payment_method' => 'nullable|required_if:payment_method,cod|in:mobile,bank',
+
+            // Mobile Banking
+            'mobile_number' => 'nullable|required_if:d_payment_method,mobile|string|max:20',
+            'transaction_id' => 'nullable|required_if:d_payment_method,mobile|string|max:100',
+
+            // Bank Transfer
+            'bank_name' => 'nullable|required_if:d_payment_method,bank|string|max:255',
+            'account_number' => 'nullable|required_if:d_payment_method,bank|string|max:100',
+            'account_holder_name' => 'nullable|required_if:d_payment_method,bank|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -119,8 +134,8 @@ class OrderController extends Controller
             'shipping_address'          => $request->address,
             'remarks'                   => $request->remarks ?? "N/A",
 
-            'payment_number'            => $request->payment_number,
-            'payment_transaction_code'  => $request->payment_transaction_code,
+            // 'payment_number'            => $request->payment_number,
+            // 'payment_transaction_code'  => $request->payment_transaction_code,
         ]);
 
         // Optional: Save latest address in profile
