@@ -20,6 +20,11 @@ class DatabaseSeeder extends Seeder
             BrandSeeder::class,
             ProductSeeder::class,
             CouponSeeder::class,
+
+            DivisionSeeder::class,
+            DistrictSeeder::class,
+            UpazilaSeeder::class,
+            PoliceStationSeeder::class,
         ]);
     }
 }
