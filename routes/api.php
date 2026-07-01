@@ -245,7 +245,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // E-commerce Admin order Routes
 // =============================
 use App\Http\Controllers\Order\OrderController;
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware('auth:sanctum','throttle:30,1')->group(function () {
     Route::prefix('orders')->group(function () {
         Route::get('/', [OrderController::class, 'index']);
         Route::get('/status', [OrderController::class, 'statusFilter']);

@@ -18,6 +18,7 @@ return new class extends Migration
             $table->dateTime('payment_date');
             $table->enum('payment_method', [
                 'bank',
+                'mobile',
                 'bkash',
                 'nagad',
                 'rocket',

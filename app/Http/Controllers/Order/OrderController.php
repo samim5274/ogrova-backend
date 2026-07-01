@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 use App\Models\User;
 use App\Models\Order;
@@ -24,6 +25,17 @@ class OrderController extends Controller
     public function __construct(PointService $pointService)
     {
         $this->pointService = $pointService;
+    }
+
+    private function generateTransactionId(): string
+    {
+        do {
+            $transactionId = 'TXN-' . now()->format('YmdHis') . '-' . Str::upper(Str::random(10));
+        } while (
+            Order::where('transaction_id', $transactionId)->exists()
+        );
+
+        return $transactionId;
     }
 
     public function index(){
@@ -48,37 +60,50 @@ class OrderController extends Controller
 
     public function confirmOrder(Request $request, $reg)
     {
-        $user = auth()->user();
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized user',
-            ], 401);
-        }
-
         $validator = Validator::make($request->all(), [
             'name'           => 'required|string|max:255',
             'phone'          => 'required|string|max:20',
-            'email'          => 'nullable|email|max:255',
-            'user_id'        => 'required|string|max:50',
+            'email'          => 'required|email|max:255',
             'address'        => 'required|string|max:1000',
             'remarks'        => 'nullable|string|max:1000',
             
-            'same_address'   => 'nullable|boolean',
+            'same_address'   => 'nullable|boolean', // if true, use user's present address
             'save_info'      => 'nullable|boolean',
 
             // Main Payment Method
             'payment_method' => 'required|in:cod,advance',
 
             // Delivery Charge Payment Method
-            'd_payment_method' => 'nullable|required_if:payment_method,cod|in:mobile,bank',
+            'd_payment_method' => [
+                'nullable',
+                Rule::requiredIf(fn () => $request->payment_method === 'cod'),
+                Rule::in(['mobile','bank']),
+            ],
 
             // Mobile Banking
-            'mobile_number' => 'nullable|required_if:d_payment_method,mobile|string|max:20',
-            'transaction_id' => 'nullable|required_if:d_payment_method,mobile|string|max:100',
+            'mobile_number' => [
+                'nullable',
+                Rule::requiredIf(fn () =>
+                    $request->payment_method === 'cod' &&
+                    $request->d_payment_method === 'mobile'
+                ),
+            ],
+            'transaction_id' => [
+                'nullable',
+                Rule::requiredIf(fn () =>
+                    $request->payment_method === 'cod' &&
+                    $request->d_payment_method === 'mobile'
+                ),
+            ],
 
             // Bank Transfer
-            'bank_name' => 'nullable|required_if:d_payment_method,bank|string|max:255',
+            'bank_name' => [
+                'nullable',
+                Rule::requiredIf(fn () =>
+                    $request->payment_method === 'cod' &&
+                    $request->d_payment_method === 'bank'
+                ),
+            ],
             'account_number' => 'nullable|required_if:d_payment_method,bank|string|max:100',
             'account_holder_name' => 'nullable|required_if:d_payment_method,bank|string|max:255',
         ]);
@@ -91,7 +116,15 @@ class OrderController extends Controller
             ], 422);
         }
 
-        $cartItems = Cart::where('reg', $reg)->where('user_id', $user->id)->get();
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized user',
+            ], 401);
+        }
+
+        $cartItems = Cart::with('product')->where('reg', $reg)->where('user_id', $user->id)->get();
         if ($cartItems->isEmpty()) {
             return response()->json([
                 'success' => false,
@@ -99,7 +132,7 @@ class OrderController extends Controller
             ]);
         }
 
-        if (Order::where('reg', $reg)->exists()) {
+        if (Order::where(['reg'=>$reg,'user_id'=>$user->id])->exists()) {
             return response()->json([
                 'success' => false,
                 'message' => "Order already created.",
@@ -110,45 +143,99 @@ class OrderController extends Controller
         $point      = $cartItems->sum(fn($item) => $item->point * $item->quantity);
         $discount   = $cartItems->sum(fn($item) => $item->discount * $item->quantity);
 
-        $order = Order::create([
-            'reg'                       => $reg,
-            'date'                      => now()->toDateString(),
-            'user_id'                   => $user->id,
+        DB::beginTransaction();
 
-            'amount'                    => $amount,
-            'discount'                  => $discount,
-            'payable_amount'            => $amount - $discount,
-            'currency'                  => 'BDT',
-            'point'                     => (int) $point,
+        try {
+            $transactionId = $this->generateTransactionId();
 
-            'payment_method'            => "Cash",
-            'transaction_id'            => uniqid('SSLCZ_'),
-            'payment_status'            => "Pending",
-            'paid_at'                   => NULL,
+            $order = Order::create([
+                'reg'                       => $reg,
+                'date'                      => now()->toDateString(),
+                'user_id'                   => $user->id,
 
-            'status'                    => 'Pending',
+                'amount'                    => $amount,
+                'discount'                  => $discount,
+                'payable_amount'            => max(0,$amount-$discount),
+                'currency'                  => 'BDT',
+                'point'                     => (int) $point,
 
-            'contact_name'              => $request->name,
-            'contact_number'            => $request->phone,
-            'contact_email'             => $request->email,
-            'shipping_address'          => $request->address,
-            'remarks'                   => $request->remarks ?? "N/A",
+                'payment_method'            => $request->payment_method === 'advance' ? 'Advance' : 'Cash On Delivery',
 
-            // 'payment_number'            => $request->payment_number,
-            // 'payment_transaction_code'  => $request->payment_transaction_code,
-        ]);
+                'transaction_id'            => $transactionId,
+                'payment_status'            => $request->payment_method === 'advance' ? 'Paid': 'Pending',
+                'paid_at'                   => $request->payment_method === 'advance' ? now() : null,
 
-        // Optional: Save latest address in profile
-        if ($request->boolean('save_info')) {
-            $user->update([
-                'present_address' => $request->address,
+                'status'                    => 'Pending',
+
+                'contact_name'              => $request->name,
+                'contact_number'            => $request->phone,
+                'contact_email'             => $request->email ?: $user->email,
+                'shipping_address'          => $request->address,
+                'remarks'                   => $request->remarks ?? "N/A",
             ]);
-        }
 
-        return response()->json([
-            'success' => false,
-            'message' => "Your order is confirmed. Thanks You.",
-        ]);
+            /*
+            |--------------------------------------------------------------------------
+            | Delivery Charge Payment
+            |--------------------------------------------------------------------------
+            */
+            if ($request->payment_method === 'cod') {
+
+                DeliveryChargePayment::create([
+
+                    'order_id'              => $order->id,
+                    'payment_date'          => now(),
+                    'payment_method'        => $request->d_payment_method,
+                    'amount'                => config('app.delivery_charge', 0), // delivery charge amount
+                    'currency'              => 'BDT',
+                    'bank_name'             => $request->bank_name,
+                    'account_number'        => $request->account_number,
+                    'account_holder_name'   => $request->account_holder_name,
+                    'mobile_number'         => $request->mobile_number,
+                    'transaction_id'        => $request->transaction_id,
+                    'payment_status'        => 'pending',
+                    'paid_by'               => $user->id,
+                    'notes'                 => 'Delivery charge submitted by customer.',
+                ]);
+            }
+
+            if ($request->boolean('save_info')) {
+
+                $user->update([
+                    'present_address' => $request->address,
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success'=>true,
+                'message'=>'Order placed successfully.',
+                'data'=>[
+                    'order_id'=>$order->id,
+                    'order_number'=>$order->reg,
+                    'payment_status'=>$order->payment_status
+                ]
+            ],201);
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            Log::error('Order confirmation failed',[
+                'user'=>$user->id,
+                'reg'=>$reg,
+                'error'=>$e->getMessage(),
+                'trace'=>$e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
+            ], 500);
+        }
 
     }
 
