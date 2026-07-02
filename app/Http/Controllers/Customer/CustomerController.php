@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\Facades\Storage;
@@ -24,9 +25,56 @@ use App\Models\Cart;
 use App\Models\ProductVariant;
 use App\Models\PointTransaction;
 use App\Models\Transaction;
+use App\Models\CustomerAddress;
 
 class CustomerController extends Controller
 {
+    public function getAddress()
+    {
+        try {
+            $user = auth()->user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized user',
+                ], 401);
+            }
+
+            $addresses = CustomerAddress::with([
+                'division:id,name,bn_name',
+                'district:id,division_id,name,bn_name',
+                'upazila:id,district_id,name,bn_name',
+                'policeStation:id,upazila_id,name,bn_name',
+            ])
+            ->where('user_id', $user->id)
+            ->orderByDesc('is_default')
+            ->latest()
+            ->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => $addresses->isEmpty()
+                    ? 'No saved addresses found.'
+                    : 'Customer addresses retrieved successfully.',
+                'data' => $addresses,
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Customer Address Fetch Failed', [
+                'user_id' => auth()->id(),
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong while retrieving addresses.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
     public function update(Request $request)
     {
         $user = $request->user();
