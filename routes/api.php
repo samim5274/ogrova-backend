@@ -156,7 +156,7 @@ use App\Http\Controllers\Customer\CustomerController;
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('customer')->group(function (){
 
-        Route::get('/addresses', [CustomerController::class, 'getAddress']);
+        Route::get('/get-addresses', [CustomerController::class, 'getAddress']);
 
         Route::prefix('profile')->group(function () {
             Route::put('/', [CustomerController::class, 'update']);
@@ -203,6 +203,11 @@ use App\Http\Controllers\Ecommerce\EcommerceProductController;
 Route::prefix('public')->group(function () {
 
     Route::get('/products', [EcommerceProductController::class, 'index']);
+
+    Route::get('/get-division', [EcommerceProductController::class, 'getDivision']); // Get Division
+    Route::get('/get-district', [EcommerceProductController::class, 'getDistrict']); // Get District
+    Route::get('/get-upazila', [EcommerceProductController::class, 'getUpazila']); // Get Upazila
+    Route::get('/get-police-station', [EcommerceProductController::class, 'getPoliceStation']); // Get police station
 
     Route::get('/get-categories', [ProductController::class, 'getCategory']);
     Route::get('/get-subcategories', [ProductController::class, 'getSubCategory']);

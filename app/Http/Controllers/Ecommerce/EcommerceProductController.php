@@ -18,6 +18,10 @@ use App\Models\ProductSubCategory;
 use App\Models\Brand;
 use App\Models\Product;
 use App\Models\Stock;
+use App\Models\Division;
+use App\Models\District;
+use App\Models\Upazila;
+use App\Models\PoliceStation;
 use App\Models\ProductVariant;
 use App\Models\ProductImage;
 
@@ -49,6 +53,73 @@ class EcommerceProductController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Products can not fetched.',
+            ], 500);
+        }
+    }
+
+    public function getDivision(){
+        try{
+            $division = Division::all();
+            return response()->json([
+                'success' => true,
+                'data' => $division
+            ], 200);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Division can not fetched.',
+            ], 500);
+        }
+    }
+
+    public function getDistrict(Request $request){
+        try{
+            $district = District::where('division_id', $request->division_id)
+                ->orderBy('name')
+                ->get();
+                
+            return response()->json([
+                'success' => true,
+                'data' => $district,
+            ], 200);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'District can not fetched.',
+            ], 500);
+        }
+    }
+
+    public function getUpazila(Request $request){
+        try{
+            $upazila = Upazila::where('district_id', $request->district_id)
+                ->orderBy('name')
+                ->get();
+            return response()->json([
+                'success' => true,
+                'data' => $upazila,
+            ], 200);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Upazila can not fetched.',
+            ], 500);
+        }
+    }
+
+    public function getPoliceStation(Request $request){
+        try{
+            $policeStation = PoliceStation::where('upazila_id', $request->upazila_id)
+                ->orderBy('name')
+                ->get();
+            return response()->json([
+                'success' => true,
+                'data' => $policeStation,
+            ], 200);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'PoliceStation can not fetched.',
             ], 500);
         }
     }
