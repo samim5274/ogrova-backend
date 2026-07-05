@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('products', function (Blueprint $table) {
             $table->id();
-
             $table->foreignId('category_id')->nullable()->constrained('product_categories')->onDelete('restrict');
             $table->foreignId('subcategory_id')->nullable()->constrained('product_sub_categories')->onDelete('restrict');
             $table->foreignId('brand_id')->nullable()->constrained('brands')->onDelete('set null');
@@ -26,6 +25,7 @@ return new class extends Migration
             $table->text('summary')->nullable();
             $table->longText('description')->nullable();
 
+            $table->decimal('purchase_price', 12, 2);
             $table->decimal('price', 12, 2);
             $table->decimal('discount_price', 12, 2)->nullable();
             $table->integer('stock_quantity')->default(0);

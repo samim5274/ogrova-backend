@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('coupons', function (Blueprint $table) {
             $table->id();
-
             $table->string('code')->unique();             // SAVE10, EID50
 
             $table->string('name')->nullable();           // Eid Offer

@@ -25,7 +25,7 @@ return new class extends Migration
             $table->decimal('order_amount',10,2);
 
             $table->string('coupon_code');
-            
+
             $table->timestamps();
         });
     }

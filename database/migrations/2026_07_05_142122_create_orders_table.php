@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
-
             /*
             |--------------------------------------------------------------------------
             | Identification
@@ -42,10 +41,9 @@ return new class extends Migration
             */
 
             $table->foreignId('coupon_id')
-                ->nullable()
-                ->constrained()
-                ->nullOnDelete()
-                ->index();
+                 ->nullable()
+                ->constrained('coupons')
+                ->nullOnDelete();
 
             $table->string('coupon_code')->nullable()->index();
 
@@ -116,33 +114,29 @@ return new class extends Migration
 
             $table->string('contact_name');
 
-            $table->string('contact_number',20);
+            $table->string('contact_number', 20);
 
             $table->string('contact_email')->nullable();
 
             $table->text('shipping_address');
 
             $table->foreignId('division_id')
-                ->constrained()
-                ->restrictOnDelete()
-                ->index();
+                ->constrained('divisions')
+                ->restrictOnDelete();
 
             $table->foreignId('district_id')
-                ->constrained()
-                ->restrictOnDelete()
-                ->index();
+                ->constrained('districts')
+                ->restrictOnDelete();
 
             $table->foreignId('upazila_id')
                 ->nullable()
-                ->constrained()
-                ->restrictOnDelete()
-                ->index();
+                ->constrained('upazilas')
+                ->restrictOnDelete();
 
             $table->foreignId('police_station_id')
                 ->nullable()
-                ->constrained()
-                ->restrictOnDelete()
-                ->index();
+                ->constrained('police_stations')
+                ->restrictOnDelete();
 
             $table->string('postal_code',20)->nullable();
 

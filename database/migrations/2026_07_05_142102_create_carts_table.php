@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('carts', function (Blueprint $table) {
             $table->id();
-
             // Registration/Session Tracking
             $table->string('reg')->index();
 

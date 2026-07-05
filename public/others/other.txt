@@ -68,3 +68,116 @@ core file:     'allowed_origins' => ['https://dynamicbazarmerchantbd.com', 'http
 
 
 🟢 Emerald Green (#16A34A) বিশ্বাস উন্নতি বাংলাদেশ 🟠 Orange (#F97316) অফার শক্তি উদ্যম ⚫ Dark Charcoal (#1F2937)
+
+
+
+
+
+
+
+
+
+
+
+
+# ======================================================
+# PRODUCT CATALOG
+# ======================================================
+
+php artisan make:model Brand -m
+
+php artisan make:model ProductCategory -m
+
+php artisan make:model ProductSubCategory -m
+
+php artisan make:model Product -m
+
+php artisan make:model ProductImage -m
+
+php artisan make:model ProductVariant -m
+
+php artisan make:model Stock -m
+
+
+# ======================================================
+# COUPONS & PROMOTIONS
+# ======================================================
+
+php artisan make:model Coupon -m
+
+# Pivot Tables (Run AFTER Coupon migration is created)
+
+php artisan make:migration create_coupon_products_table
+
+php artisan make:migration create_coupon_categories_table
+
+php artisan make:migration create_coupon_brands_table
+
+php artisan make:migration create_coupon_vendors_table
+
+
+# ======================================================
+# LOYALTY
+# ======================================================
+
+php artisan make:model PointTransaction -m
+
+
+# ======================================================
+# LOCATION
+# ======================================================
+
+php artisan make:model Division -m
+
+php artisan make:model District -m
+
+php artisan make:model Upazila -m
+
+php artisan make:model PoliceStation -m
+
+
+# ======================================================
+# CUSTOMER
+# ======================================================
+
+php artisan make:model CustomerAddress -m
+
+php artisan make:model Cart -m
+
+
+# ======================================================
+# ORDERS
+# ======================================================
+
+php artisan make:model Order -m
+
+php artisan make:model CouponUsage -m
+
+php artisan make:model Transaction -m
+
+php artisan make:model OrderPayment -m
+
+
+# ======================================================
+# SHIPPING
+# ======================================================
+
+php artisan make:model ShippingZone -m
+
+php artisan make:model DeliveryChargePayment -m
+
+
+# ======================================================
+# SECURITY
+# ======================================================
+
+php artisan make:model OtpVerification -m
+
+
+# ======================================================
+# CMS
+# ======================================================
+
+php artisan make:model Slider -m
+
+php artisan make:model Notice -m

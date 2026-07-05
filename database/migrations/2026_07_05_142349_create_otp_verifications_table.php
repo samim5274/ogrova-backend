@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('otp_verifications', function (Blueprint $table) {
             $table->id();
-
             $table->string('transaction_id', 50)->nullable()->index();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
 

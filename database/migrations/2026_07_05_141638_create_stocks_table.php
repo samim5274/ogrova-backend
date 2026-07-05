@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('stocks', function (Blueprint $table) {
             $table->id();
-
             $table->string('reg')->unique()->comment('Batch or Transaction Number')->default(0);
 
             $table->date('date');

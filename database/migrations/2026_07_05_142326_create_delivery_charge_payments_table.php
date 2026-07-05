@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('delivery_charge_payments', function (Blueprint $table) {
             $table->id();
-            
             $table->foreignId('order_id')->constrained('orders')->onDelete('restrict');
             $table->dateTime('payment_date');
             $table->enum('payment_method', [
