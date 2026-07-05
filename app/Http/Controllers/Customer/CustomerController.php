@@ -75,6 +75,95 @@ class CustomerController extends Controller
         }
     }
 
+    public function createAddress(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'label' => 'required|in:Home,Office,Other',
+            'recipient_name' => 'required|string|max:100',
+            'phone' => ['required', 'regex:/^(?:\+88)?01[3-9]\d{8}$/'],
+            'division_id' => 'required|exists:divisions,id',
+            'district_id' => 'required|exists:districts,id',
+            'upazila_id' => 'required|exists:upazilas,id',
+            'police_station_id' => 'nullable|exists:police_stations,id',
+            'address' => 'required|string|max:500',
+            'postal_code' => 'nullable|string|max:20',
+            'is_default' => 'boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        DB::beginTransaction();
+
+        try {
+
+            $user = auth()->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated.'
+                ], 401);
+            }
+
+            $isDefault = $request->boolean('is_default');
+
+            if (!CustomerAddress::where('user_id', $user->id)->exists()) {
+                $isDefault = true;
+            }
+
+            if ($isDefault) {
+                CustomerAddress::where('user_id', $user->id)
+                    ->update([
+                        'is_default' => false
+                    ]);
+            }
+
+            $address = CustomerAddress::create([
+                'user_id' => $user->id,
+                'label' => $request->label,
+                'recipient_name' => $request->recipient_name,
+                'phone' => $request->phone,
+                'division_id' => $request->division_id,
+                'district_id' => $request->district_id,
+                'upazila_id' => $request->upazila_id,
+                'police_station_id' => $request->police_station_id,
+                'address' => $request->address,
+                'postal_code' => $request->postal_code,
+                'is_default' => $isDefault,
+            ]);
+
+            $address->load([
+                'division:id,name',
+                'district:id,name',
+                'upazila:id,name',
+                'policeStation:id,name'
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Address created successfully.',
+                'data' => $address
+            ], 201);
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function update(Request $request)
     {
         $user = $request->user();

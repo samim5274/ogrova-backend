@@ -156,7 +156,10 @@ use App\Http\Controllers\Customer\CustomerController;
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('customer')->group(function (){
 
-        Route::get('/get-addresses', [CustomerController::class, 'getAddress']);
+        Route::prefix('addresses')->group(function(){
+            Route::get('/get', [CustomerController::class, 'getAddress']);
+            Route::post('/create', [CustomerController::class, 'createAddress']);
+        });
 
         Route::prefix('profile')->group(function () {
             Route::put('/', [CustomerController::class, 'update']);
