@@ -164,6 +164,45 @@ class CustomerController extends Controller
         }
     }
 
+    public function deleteAddress($id)
+    {
+        try {
+
+             $user = auth()->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated.'
+                ], 401);
+            }
+
+            $address = CustomerAddress::where('user_id', $user->id)
+                ->where('id', $id)
+                ->first();
+
+            if (!$address) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Address not found.'
+                ], 404);
+            }
+
+            $address->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Address deleted successfully.'
+            ], 200);
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function update(Request $request)
     {
         $user = $request->user();

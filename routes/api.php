@@ -159,6 +159,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::prefix('addresses')->group(function(){
             Route::get('/get', [CustomerController::class, 'getAddress']);
             Route::post('/create', [CustomerController::class, 'createAddress']);
+            Route::delete('/delete/{id}', [CustomerController::class, 'deleteAddress']);
         });
 
         Route::prefix('profile')->group(function () {
