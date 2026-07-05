@@ -149,7 +149,19 @@ class ConfirmOrderRequest extends FormRequest
                 ),
                 'string',
                 'max:100',
-                Rule::unique('orders', 'transaction_id'),
+
+                'transaction_id' => [
+                    'bail',
+                    'sometimes',
+                    Rule::requiredIf(
+                        fn () =>
+                            $this->payment_method === 'advance'
+                            && $this->d_payment_method === 'mobile_banking'
+                    ),
+                    'string',
+                    'max:100',
+                    Rule::unique('transactions', 'transaction_id'),
+                ],
             ],
 
         ];

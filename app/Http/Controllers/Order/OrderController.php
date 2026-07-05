@@ -24,6 +24,8 @@ use App\Models\Upazila;
 use App\Models\PoliceStation;
 use App\Models\ShippingZone;
 use App\Models\CustomerAddress;
+use App\Models\Transaction;
+use App\Models\OrderPayment;
 
 class OrderController extends Controller
 {
@@ -39,7 +41,7 @@ class OrderController extends Controller
         do {
             $transactionId = 'TXN-' . now()->format('YmdHis') . '-' . Str::upper(Str::random(10));
         } while (
-            Order::where('transaction_id', $transactionId)->exists()
+            Transaction::where('transaction_id', $transactionId)->exists()
         );
 
         return $transactionId;
@@ -293,7 +295,7 @@ class OrderController extends Controller
         DB::beginTransaction();
 
         try {
-            $transactionId = $this->generateTransactionId();
+            // $transactionId = $this->generateTransactionId();
 
             $order = Order::create([
                 'reg'                       => $reg,
@@ -306,9 +308,8 @@ class OrderController extends Controller
                 'currency'                  => 'BDT',
                 'point'                     => (int) $point,
 
-                'payment_method'            => $request->payment_method === 'advance' ? 'Advance' : 'Cash On Delivery',
+                'payment_method'            => $request->payment_method === 'advance' ? 'online' : 'cod',
 
-                'transaction_id'            => $transactionId,
                 'payment_status'            => $request->payment_method === 'advance' ? 'Paid': 'Pending',
                 'paid_at'                   => $request->payment_method === 'advance' ? now() : null,
 
@@ -332,6 +333,52 @@ class OrderController extends Controller
 
                 $user->update([
                     'present_address' => $address->address,
+                ]);
+            }
+
+            if ($request->payment_method === 'advance') {
+
+                $transactionId = 'TXN-' . now()->format('YmdHis') . '-' . strtoupper(Str::random(8));
+
+                // Transaction Table
+                Transaction::create([
+                    'transaction_id'      => $request->transaction_id,
+                    'user_id'             => $user->id,
+                    'amount'              => $order->payable_amount,
+                    'charge'              => 0,
+                    'net_amount'          => $order->payable_amount,
+                    'payment_method'      => 'online', // bkash/nagad/sslcommerz
+
+                    'status'              => 'paid',
+
+                    'is_confirm'          => true,
+
+                    'requested_at'        => now(),
+                    'processed_at'        => now(),
+                ]);
+
+                // Order Payment Table
+                OrderPayment::create([
+
+                    'order_id'                  => $order->id,
+                    'user_id'                   => $user->id,
+
+                    'payment_method'            => OrderPayment::METHOD_SSLCOMMERZ,
+                    // METHOD_MOBILE_BANKING
+
+                    'gateway'                   => 'SSLCommerz',
+
+                    'transaction_id'            => $request->transaction_id,
+
+                    'amount'                    => $order->payable_amount,
+
+                    'currency'                  => 'BDT',
+
+                    'status'                    => OrderPayment::STATUS_SUCCESS,
+
+                    'paid_at'                   => now(),
+
+                    'remarks'                   => 'Advance payment',
                 ]);
             }
 

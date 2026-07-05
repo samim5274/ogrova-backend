@@ -64,25 +64,25 @@ class Transaction extends Model
     |--------------------------------------------------------------------------
     */
 
-    // ব্যবহার: Transaction::pending()->get();
+    // Transaction::pending()->get();
     public function scopePending($query)
     {
         return $query->where('status', 'pending');
     }
 
-    // ব্যবহার: Transaction::processing()->get();
+    // Transaction::processing()->get();
     public function scopeProcessing($query)
     {
         return $query->where('status', 'processing');
     }
 
-    // ব্যবহার: Transaction::paid()->get();
+    // Transaction::paid()->get();
     public function scopePaid($query)
     {
         return $query->where('status', 'paid');
     }
 
-    // ব্যবহার: Transaction::rejected()->get();
+    // Transaction::rejected()->get();
     public function scopeRejected($query)
     {
         return $query->where('status', 'rejected');
@@ -94,31 +94,31 @@ class Transaction extends Model
     |--------------------------------------------------------------------------
     */
 
-    // ব্যবহার: if ($transaction->isPending()) { ... }
+    // if ($transaction->isPending()) { ... }
     public function isPending()
     {
         return $this->status === 'pending';
     }
 
-    // ব্যবহার: if ($transaction->isPaid()) { ... }
+    // if ($transaction->isPaid()) { ... }
     public function isPaid()
     {
         return $this->status === 'paid';
     }
 
-    // ব্যবহার: if ($transaction->isRejected()) { ... }
+    // if ($transaction->isRejected()) { ... }
     public function isRejected()
     {
         return $this->status === 'rejected';
     }
 
-    // ব্যবহার: if ($transaction->isBankTransfer()) { ... }
+    // if ($transaction->isBankTransfer()) { ... }
     public function isBankTransfer()
     {
         return $this->payment_method === 'bank';
     }
 
-    // ব্যবহার: if ($transaction->isWallet()) { ... }
+    // if ($transaction->isWallet()) { ... }
     public function isWallet()
     {
         return in_array($this->payment_method, ['bkash', 'nagad', 'rocket']);
