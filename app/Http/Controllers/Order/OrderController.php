@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
+use App\Http\Requests\ConfirmOrderRequest;
 use App\Models\User;
 use App\Models\Order;
 use App\Models\PointTransaction;
@@ -22,6 +23,7 @@ use App\Models\District;
 use App\Models\Upazila;
 use App\Models\PoliceStation;
 use App\Models\ShippingZone;
+use App\Models\CustomerAddress;
 
 class OrderController extends Controller
 {
@@ -245,29 +247,9 @@ class OrderController extends Controller
 
     // }
 
-    public function confirmOrder(Request $request, $reg)
+    public function confirmOrder(ConfirmOrderRequest $request, $reg)
     {
-        $validator = Validator::make($request->all(), [
-            'name'           => 'required|string|max:255',
-            'phone'          => 'required|string|max:20',
-            'email'          => 'required|email|max:255',
-            'address'        => 'required|string|max:1000',
-            'remarks'        => 'nullable|string|max:1000',
-
-            'same_address'   => 'nullable|boolean', // if true, use user's present address
-            'save_info'      => 'nullable|boolean',
-
-            // Main Payment Method
-            'payment_method' => 'required|in:cod,advance',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => $validator->errors()->first(),
-                'errors'  => $validator->errors(),
-            ], 422);
-        }
+        $validated = $request->validated();
 
         $user = auth()->user();
         if (!$user) {
@@ -275,6 +257,18 @@ class OrderController extends Controller
                 'success' => false,
                 'message' => 'Unauthorized user',
             ], 401);
+        }
+
+        $address = CustomerAddress::query()
+            ->whereKey($validated['address_id'])
+            ->where('user_id', $user->id)
+            ->firstOrFail();
+
+        if (!$address) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Shipping address not found.',
+            ], 404);
         }
 
         $cartItems = Cart::with('product')->where('reg', $reg)->where('user_id', $user->id)->get();
@@ -320,17 +314,24 @@ class OrderController extends Controller
 
                 'status'                    => 'Pending',
 
-                'contact_name'              => $request->name ?? null,
-                'contact_number'            => $request->phone ?? null,
-                'contact_email'             => $request->email ?: $user->email,
-                'shipping_address'          => $request->address,
+                'contact_name'              => $address->recipient_name,
+                'contact_number'            => $address->phone,
+                'contact_email'             => $user->email,
+
+                'division_id'               => $address->division_id,
+                'district_id'               => $address->district_id,
+                'upazila_id'                => $address->upazila_id,
+                'police_station_id'         => $address->police_station_id,
+                'postal_code'               => $address->postal_code,
+
+                'shipping_address'          => $address->address,
                 'remarks'                   => $request->remarks ?? "N/A",
             ]);
 
             if ($request->boolean('save_info')) {
 
                 $user->update([
-                    'present_address' => $request->address,
+                    'present_address' => $address->address,
                 ]);
             }
 
@@ -364,6 +365,11 @@ class OrderController extends Controller
                 'line'    => $e->getLine(),
             ], 500);
         }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Order created.",
+        ]);
 
     }
 

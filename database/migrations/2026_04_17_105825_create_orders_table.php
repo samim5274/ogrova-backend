@@ -14,42 +14,86 @@ return new class extends Migration
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
 
-            // 1. Identification & Routing
+            /*
+            |--------------------------------------------------------------------------
+            | Identification
+            |--------------------------------------------------------------------------
+            */
+
             $table->string('reg')->unique();
             $table->string('slug')->unique();
             $table->date('date')->index();
 
-            // 2. Relationship
-            $table->foreignId('user_id')->constrained('users')->onDelete('restrict');
+            /*
+            |--------------------------------------------------------------------------
+            | Relationship
+            |--------------------------------------------------------------------------
+            */
 
-            // 3. Coupon
-            $table->unsignedBigInteger('coupon_id')->nullable()->index();
+            $table->foreignId('user_id')
+                ->constrained()
+                ->restrictOnDelete()
+                ->index();
 
-            $table->string('coupon_code')->nullable();
+            /*
+            |--------------------------------------------------------------------------
+            | Coupon
+            |--------------------------------------------------------------------------
+            */
 
-            // 4. Financial Data (Money Matters)
-            $table->decimal('amount', 12, 2)->default(0);
-            $table->decimal('coupon_discount', 12, 2)->default(0);
-            $table->decimal('shipping_charge', 12, 2)->default(0);
-            $table->decimal('tax', 12, 2)->default(0);
-            $table->decimal('discount', 12, 2)->default(0.00);
-            $table->decimal('payable_amount', 12, 2)->default(0.00);
-            $table->string('currency', 20)->nullable()->default("BDT");
+            $table->foreignId('coupon_id')
+                ->nullable()
+                ->constrained()
+                ->nullOnDelete()
+                ->index();
+
+            $table->string('coupon_code')->nullable()->index();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Financial
+            |--------------------------------------------------------------------------
+            */
+
+            $table->decimal('amount',12,2)->default(0);
+            $table->decimal('coupon_discount',12,2)->default(0);
+            $table->decimal('shipping_charge',12,2)->default(0);
+            $table->decimal('tax',12,2)->default(0);
+            $table->decimal('discount',12,2)->default(0);
+            $table->decimal('payable_amount',12,2)->default(0);
+
+            $table->char('currency',3)->default('BDT');
+
             $table->integer('point')->default(0);
 
-            // 5. Payment Information
-            $table->string('payment_method')->nullable();
-            $table->string('transaction_id')->nullable()->unique();
-            $table->enum('payment_status', [
+            /*
+            |--------------------------------------------------------------------------
+            | Payment
+            |--------------------------------------------------------------------------
+            */
+
+            $table->enum('payment_method',[
+                'cod',
+                'online'
+            ])->default('cod')->index();
+
+            $table->enum('payment_status',[
                 'Pending',
+                'Partial',
                 'Paid',
                 'Failed',
                 'Refunded'
-            ])->default('Pending');
-            $table->timestamp('paid_at')->nullable();
+            ])->default('Pending')->index();
 
-            // 6. Order Status & Tracking
-            $table->enum('status', [
+            $table->timestamp('paid_at')->nullable()->index();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Order Status
+            |--------------------------------------------------------------------------
+            */
+
+            $table->enum('status',[
                 'Pending',
                 'Confirmed',
                 'Processing',
@@ -64,21 +108,81 @@ return new class extends Migration
 
             $table->boolean('referral_bonus_paid')->default(false);
 
-            // 7. Shipping
-            $table->string('contact_name');
-            $table->string('contact_number')->nullable();
-            $table->string('contact_email')->nullable();
-            $table->text('shipping_address')->nullable();
-            $table->string('remarks')->nullable();
+            /*
+            |--------------------------------------------------------------------------
+            | Shipping
+            |--------------------------------------------------------------------------
+            */
 
-            // 8. Tracking Timestamps (For Analytics & UI Timeline)
+            $table->string('contact_name');
+
+            $table->string('contact_number',20);
+
+            $table->string('contact_email')->nullable();
+
+            $table->text('shipping_address');
+
+            $table->foreignId('division_id')
+                ->constrained()
+                ->restrictOnDelete()
+                ->index();
+
+            $table->foreignId('district_id')
+                ->constrained()
+                ->restrictOnDelete()
+                ->index();
+
+            $table->foreignId('upazila_id')
+                ->nullable()
+                ->constrained()
+                ->restrictOnDelete()
+                ->index();
+
+            $table->foreignId('police_station_id')
+                ->nullable()
+                ->constrained()
+                ->restrictOnDelete()
+                ->index();
+
+            $table->string('postal_code',20)->nullable();
+
+            $table->text('remarks')->nullable();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Timeline
+            |--------------------------------------------------------------------------
+            */
+
+            $table->timestamp('processing_at')->nullable();
+
+            $table->timestamp('picked_at')->nullable();
+
             $table->timestamp('confirmed_at')->nullable();
+
             $table->timestamp('shipped_at')->nullable();
+
             $table->timestamp('delivered_at')->nullable();
+
             $table->timestamp('cancelled_at')->nullable();
 
             $table->softDeletes();
+
             $table->timestamps();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Composite Index
+            |--------------------------------------------------------------------------
+            */
+
+            $table->index(['user_id','status']);
+
+            $table->index(['user_id','payment_status']);
+
+            $table->index(['status','payment_status']);
+
+            $table->index(['created_at','status']);
         });
     }
 

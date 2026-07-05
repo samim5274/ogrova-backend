@@ -167,7 +167,17 @@ class User extends Authenticatable
     }
 
     public function addresses(): HasMany
-{
-    return $this->hasMany(CustomerAddress::class);
-}
+    {
+        return $this->hasMany(CustomerAddress::class);
+    }
+
+    public function orderPayments()
+    {
+        return $this->hasMany(OrderPayment::class);
+    }
+
+    public function verifiedPayments()
+    {
+        return $this->hasMany(OrderPayment::class, 'verified_by');
+    }
 }
