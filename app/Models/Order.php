@@ -76,6 +76,7 @@ class Order extends Model
         'payment_method',
         'payment_status',
         'paid_at',
+        'submitted_at',
 
         /*
         |--------------------------------------------------------------------------

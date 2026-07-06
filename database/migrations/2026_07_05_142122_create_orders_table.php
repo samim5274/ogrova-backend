@@ -84,6 +84,7 @@ return new class extends Migration
             ])->default('Pending')->index();
 
             $table->timestamp('paid_at')->nullable()->index();
+            $table->timestamp('submitted_at')->nullable()->index(); // advance then submitted
 
             /*
             |--------------------------------------------------------------------------

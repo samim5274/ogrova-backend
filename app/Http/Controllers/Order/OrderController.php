@@ -266,37 +266,34 @@ class OrderController extends Controller
             $response = DB::transaction(function () use ($validated, $user, $reg, $request) {
 
                 // Customer Address
-                $address = CustomerAddress::query()
-                    ->whereKey($validated['address_id'])
+                $address = CustomerAddress::whereKey($validated['address_id'])
                     ->where('user_id', $user->id)
                     ->first();
 
                 if (!$address) {
-                    DB::rollBack();
-                    return response()->json([
-                        'success'=>false,
-                        'message'=>'Address not found.'
-                    ],404);
-                }
-
-                $cartItems = Cart::with('product')
-                    ->where('reg', $reg)
-                    ->where('user_id', $user->id)
-                    ->lockForUpdate()
-                    ->get();
-                if ($cartItems->isEmpty()) {
-                    DB::rollBack();
-                    return response()->json([
-                        'success' => false,
-                        'message' => "Cart items is empty.",
+                    throw ValidationException::withMessages([
+                        'address_id' => ['Address not found.']
                     ]);
                 }
 
-                if (Order::where(['reg'=>$reg,'user_id'=>$user->id])->lockForUpdate()->exists()) {
-                    DB::rollBack();
-                    return response()->json([
-                        'success' => false,
-                        'message' => "Order already created.",
+                $cartItems = Cart::where('reg', $reg)
+                    ->where('user_id', $user->id)
+                    ->lockForUpdate()
+                    ->get();
+
+                if ($cartItems->isEmpty()) {
+                    throw ValidationException::withMessages([
+                        'cart' => ['Cart is empty.']
+                    ]);
+                }
+
+                if (Order::where([
+                    'reg' => $reg,
+                    'user_id' => $user->id
+                ])->lockForUpdate()->exists()) {
+
+                    throw ValidationException::withMessages([
+                        'order' => ['Order already created.']
                     ]);
                 }
 
@@ -319,6 +316,7 @@ class OrderController extends Controller
 
                     'payment_status'            => Order::PAYMENT_PENDING, // Manual payment verify
                     'paid_at'                   => null, // $validated['payment_method'] === 'advance' ? now() : null,
+                    'submitted_at'              => $validated['payment_method'] === 'advance' ? now() : null,
 
                     'status'                    => Order::STATUS_PENDING, // Order status
 
@@ -398,9 +396,13 @@ class OrderController extends Controller
 
             return $response;
 
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $e->errors(),
+            ], 422);
         } catch (\Throwable $e) {
-
-            DB::rollBack();
 
             Log::error('Order confirmation failed', [
                 'user_id' => $user?->id,
@@ -409,25 +411,13 @@ class OrderController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            if (app()->isProduction()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Something went wrong. Please try again.',
-                ], 500);
-            }
-
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
+                'message' => app()->isProduction()
+                    ? 'Something went wrong. Please try again.'
+                    : $e->getMessage(),
             ], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'message' => "Order created.",
-        ]);
 
     }
 
