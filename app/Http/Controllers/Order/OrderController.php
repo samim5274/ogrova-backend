@@ -309,7 +309,7 @@ class OrderController extends Controller
 
                 'payment_method'            => $validated['payment_method'],
 
-                'payment_status'            => $validated['payment_method'] === 'advance' ? 'Paid': 'Pending',
+                'payment_status'            => Order::PAYMENT_PENDING,
                 'paid_at'                   => $validated['payment_method'] === 'advance' ? now() : null,
 
                 'status'                    => 'Pending',
