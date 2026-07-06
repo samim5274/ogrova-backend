@@ -17,6 +17,8 @@ class Order extends Model
     public const PAYMENT_METHOD_COD='cod';
     public const PAYMENT_METHOD_ONLINE='online';
 
+    public const CURRENCY_BDT = 'BDT';
+
     public const PAYMENT_PENDING='Pending';
     public const PAYMENT_PARTIAL='Partial';
     public const PAYMENT_PAID='Paid';

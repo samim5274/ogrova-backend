@@ -18,6 +18,7 @@ class Cart extends Model
         'quantity',
         'price',
         'discount',
+        'payable_amount',
         'point',
         'note',
     ];

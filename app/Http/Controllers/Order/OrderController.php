@@ -261,150 +261,166 @@ class OrderController extends Controller
             ], 401);
         }
 
-        DB::beginTransaction();
-
         try {
 
-            // Customer Address
-            $address = CustomerAddress::query()
-                ->whereKey($validated['address_id'])
-                ->where('user_id', $user->id)
-                ->firstOrFail();
+            $response = DB::transaction(function () use ($validated, $user, $reg, $request) {
 
-            $cartItems = Cart::with('product')
-                ->where('reg', $reg)
-                ->where('user_id', $user->id)
-                ->lockForUpdate()
-                ->get();
-            if ($cartItems->isEmpty()) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => "Cart items is empty.",
-                ]);
-            }
+                // Customer Address
+                $address = CustomerAddress::query()
+                    ->whereKey($validated['address_id'])
+                    ->where('user_id', $user->id)
+                    ->first();
 
-            if (Order::where(['reg'=>$reg,'user_id'=>$user->id])->lockForUpdate()->exists()) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => "Order already created.",
-                ]);
-            }
+                if (!$address) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success'=>false,
+                        'message'=>'Address not found.'
+                    ],404);
+                }
 
-            $amount     = $cartItems->sum(fn($item) => $item->price * $item->quantity);
-            $point      = $cartItems->sum(fn($item) => $item->point * $item->quantity);
-            $discount   = $cartItems->sum(fn($item) => $item->discount * $item->quantity);
+                $cartItems = Cart::with('product')
+                    ->where('reg', $reg)
+                    ->where('user_id', $user->id)
+                    ->lockForUpdate()
+                    ->get();
+                if ($cartItems->isEmpty()) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Cart items is empty.",
+                    ]);
+                }
 
-            $order = Order::create([
-                'reg'                       => $reg,
-                'date'                      => now()->toDateString(),
-                'user_id'                   => $user->id,
+                if (Order::where(['reg'=>$reg,'user_id'=>$user->id])->lockForUpdate()->exists()) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Order already created.",
+                    ]);
+                }
 
-                'amount'                    => $amount,
-                'discount'                  => $discount,
-                'payable_amount'            => $amount,
-                'currency'                  => 'BDT',
-                'point'                     => (int) $point,
+                $amount     = $cartItems->sum(fn($item) => $item->price * $item->quantity);
+                $point      = $cartItems->sum(fn($item) => $item->point * $item->quantity);
+                $discount   = $cartItems->sum(fn($item) => $item->discount * $item->quantity);
 
-                'payment_method'            => $validated['payment_method'],
-
-                'payment_status'            => Order::PAYMENT_PENDING,
-                'paid_at'                   => $validated['payment_method'] === 'advance' ? now() : null,
-
-                'status'                    => 'Pending',
-
-                'contact_name'              => $address->recipient_name,
-                'contact_number'            => $address->phone,
-                'contact_email'             => $user->email,
-
-                'division_id'               => $address->division_id,
-                'district_id'               => $address->district_id,
-                'upazila_id'                => $address->upazila_id,
-                'police_station_id'         => $address->police_station_id,
-                'postal_code'               => $address->postal_code,
-
-                'shipping_address'          => $address->address,
-                'remarks'                   => $validated['remarks'] ?? null,
-            ]);
-
-            if ($request->boolean('save_info')) {
-
-                $user->update([
-                    'present_address' => $address->address,
-                ]);
-            }
-
-            if ($validated['payment_method'] === 'advance') {
-
-                // Order Payment Table
-                OrderPayment::create([
-                    'order_id'                  => $order->id,
+                $order = Order::create([
+                    'reg'                       => $reg,
+                    'date'                      => now()->toDateString(),
                     'user_id'                   => $user->id,
 
-                    'payment_method'            => $validated['trans_payment_method'] === 'mobile'
-                                                    ? OrderPayment::METHOD_MOBILE_BANKING
-                                                    : OrderPayment::METHOD_BANK_TRANSFER,
+                    'amount'                    => $amount,
+                    'discount'                  => $discount,
+                    'payable_amount'            => max(0,$amount - $discount),
+                    'currency'                  => Order::CURRENCY_BDT,
+                    'point'                     => (int) $point,
 
-                    'gateway'                   => 'manual',
+                    'payment_method'            => $validated['payment_method'],
 
-                    'transaction_id'            => $validated['transaction_id'],
-                    'bank_name'                 => $validated['bank_name'] ?? null,
-                    'account_number'            => $validated['account_number'] ?? null,
-                    'account_holder_name'       => $validated['account_holder_name'] ?? null,
+                    'payment_status'            => Order::PAYMENT_PENDING, // Manual payment verify
+                    'paid_at'                   => null, // $validated['payment_method'] === 'advance' ? now() : null,
 
-                    'amount'                    => $order->payable_amount,
-                    'currency'                  => 'BDT',
+                    'status'                    => Order::STATUS_PENDING, // Order status
 
-                    'status'                    => OrderPayment::STATUS_SUCCESS,
-                    'paid_at'                   => now(),
+                    'contact_name'              => $address->recipient_name,
+                    'contact_number'            => $address->phone,
+                    'contact_email'             => $user->email,
 
-                    'remarks'                   => 'Advance payment',
+                    'division_id'               => $address->division_id,
+                    'district_id'               => $address->district_id,
+                    'upazila_id'                => $address->upazila_id,
+                    'police_station_id'         => $address->police_station_id,
+                    'postal_code'               => $address->postal_code,
 
-                    // for SSL
-                    // 'payment_method' => OrderPayment::METHOD_CARD,
-                    // 'gateway'        => 'sslcommerz',
-                    // 'status'         => OrderPayment::STATUS_SUCCESS,
-                    // 'gateway_transaction_id' => $sslResponse['tran_id'],
-                    // 'gateway_response'       => json_encode($sslResponse),
-
-                    // For Stripe
-                    // 'payment_method' => OrderPayment::METHOD_CARD,
-                    // 'gateway'        => 'stripe',
-                    // 'status'         => OrderPayment::STATUS_SUCCESS,
-                    // 'gateway_transaction_id' => $paymentIntent->id,
-                    // 'gateway_response'       => json_encode($paymentIntent),
+                    'shipping_address'          => $address->address,
+                    'remarks'                   => $validated['remarks'] ?? null,
                 ]);
-            }
 
-            DB::commit();
+                if ($request->boolean('save_info')) {
 
-            return response()->json([
-                'success'=>true,
-                'message'=>'Order placed successfully.',
-                'data'=>[
-                    'order_id'=>$order->id,
-                    'order_number'=>$order->reg,
-                    'payment_status'=>$order->payment_status
-                ]
-            ],201);
+                    $user->update([
+                        'present_address' => $address->address,
+                    ]);
+                }
+
+                if ($validated['payment_method'] === 'advance') {
+
+                    // Order Payment Table
+                    OrderPayment::create([
+                        'order_id'                  => $order->id,
+                        'user_id'                   => $user->id,
+
+                        'payment_method'            => $validated['trans_payment_method'] === 'mobile'
+                                                        ? OrderPayment::METHOD_MOBILE_BANKING
+                                                        : OrderPayment::METHOD_BANK_TRANSFER,
+
+                        'gateway'                   => 'manual',
+
+                        'transaction_id'            => $validated['transaction_id'],
+                        'bank_name'                 => $validated['bank_name'] ?? null,
+                        'account_number'            => $validated['account_number'] ?? null,
+                        'account_holder_name'       => $validated['account_holder_name'] ?? null,
+
+                        'amount'                    => $order->payable_amount,
+                        'currency'                  => OrderPayment::CURRENCY_BDT,
+
+                        'status'                    => OrderPayment::STATUS_PENDING,
+                        'paid_at'                   => now(),
+
+                        'remarks'                   => 'Advance payment',
+
+                        // for SSL
+                        // 'payment_method' => OrderPayment::METHOD_CARD,
+                        // 'gateway'        => 'sslcommerz',
+                        // 'status'         => OrderPayment::STATUS_SUCCESS,
+                        // 'gateway_transaction_id' => $sslResponse['tran_id'],
+                        // 'gateway_response'       => json_encode($sslResponse),
+
+                        // For Stripe
+                        // 'payment_method' => OrderPayment::METHOD_CARD,
+                        // 'gateway'        => 'stripe',
+                        // 'status'         => OrderPayment::STATUS_SUCCESS,
+                        // 'gateway_transaction_id' => $paymentIntent->id,
+                        // 'gateway_response'       => json_encode($paymentIntent),
+                    ]);
+                }
+
+                    return response()->json([
+                    'success' => true,
+                    'message' => 'Order placed successfully.',
+                    'data' => [
+                        'order_id' => $order->id,
+                        'order_number' => $order->reg,
+                        'payment_status' => $order->payment_status,
+                    ]
+                ], 201);
+            });
+
+            return $response;
 
         } catch (\Throwable $e) {
 
             DB::rollBack();
 
-            Log::error('Order confirmation failed',[
-                'user'=>$user->id,
-                'reg'=>$reg,
-                'error'=>$e->getMessage(),
-                'trace'=>$e->getTraceAsString()
+            Log::error('Order confirmation failed', [
+                'user_id' => $user?->id,
+                'reg' => $reg,
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
+
+            if (app()->isProduction()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Something went wrong. Please try again.',
+                ], 500);
+            }
 
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
-                'file'    => $e->getFile(),
-                'line'    => $e->getLine(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ], 500);
         }
 

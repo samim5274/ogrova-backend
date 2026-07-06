@@ -92,20 +92,29 @@ class CartController extends Controller
                 // ======================
                 // Price
                 // ======================
+                // if ($variant) {
+                //     $basePrice = $variant->price ?? $product->price;
+                //     $variantDiscount = $variant->discount_price ?? $product->discount_price ?? 0;
+                //     $finalPrice = $variantDiscount > 0
+                //         ? $basePrice - $variantDiscount
+                //         : $basePrice;
+                //     $discountAmount = $variantDiscount > 0
+                //         ? $variantDiscount
+                //         : 0;
+                // } else {
+                //     $basePrice = $product->price;
+                //     $finalPrice = $product->price;
+                //     $discountAmount = 0;
+                // }
+
                 if ($variant) {
-                    $basePrice = $variant->price ?? $product->price;
-                    $variantDiscount = $variant->discount_price ?? 0;
-                    $finalPrice = $variantDiscount > 0
-                        ? $basePrice - $variantDiscount
-                        : $basePrice;
-                    $discountAmount = $variantDiscount > 0
-                        ? $variantDiscount
-                        : 0;
+                    $basePrice = (float) $variant->price;
+                    $discountAmount = (float) ($variant->discount_price ?? 0);
                 } else {
-                    $basePrice = $product->price;
-                    $finalPrice = $product->price;
-                    $discountAmount = 0;
+                    $basePrice = (float) $product->price;
+                    $discountAmount = (float) ($product->discount_price ?? 0);
                 }
+                $finalPrice = max(0, $basePrice - $discountAmount);
 
                 // ======================
                 // Cart item find
@@ -140,9 +149,10 @@ class CartController extends Controller
                 // ======================
                 if ($cartItem) {
                     $cartItem->update([
-                        'quantity' => $newQty,
-                        'price' => $finalPrice,
-                        'discount' => $discountAmount,
+                        'quantity'          => $newQty,
+                        'price'             => $basePrice,
+                        'discount'          => $discountAmount,
+                        'payable_amount'    => $finalPrice,
                     ]);
                 } else {
                     $cartItem = Cart::create([
@@ -151,8 +161,9 @@ class CartController extends Controller
                         'product_id'        => $product->id,
                         'variant_id'        => $variant?->id,
                         'quantity'          => $requestedQty,
-                        'price'             => $finalPrice,
+                        'price'             => $basePrice,
                         'discount'          => $discountAmount,
+                        'payable_amount'    => $finalPrice,
                         'point'             => $product->point,
                     ]);
                 }

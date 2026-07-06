@@ -15,6 +15,7 @@ class OrderPayment extends Model
     |--------------------------------------------------------------------------
     */
 
+    public const CURRENCY_BDT           = 'BDT';
     public const METHOD_COD             = 'cod';
     public const METHOD_BANK_TRANSFER   = 'bank_transfer';
     public const METHOD_MOBILE_BANKING  = 'mobile_banking';
