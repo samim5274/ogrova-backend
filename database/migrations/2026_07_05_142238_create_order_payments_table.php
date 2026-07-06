@@ -26,13 +26,11 @@ return new class extends Migration
                 'cod',
                 'bank_transfer',
                 'mobile_banking',
-                'sslcommerz',
-                'stripe',
+                'card',
                 'paypal',
-                'manual'
             ]);
 
-            $table->string('gateway')->nullable();
+            $table->string('gateway')->nullable(); // manual, sslcommerz ,stripe, bkash, nagad, rocket
 
             /*
             |--------------------------------------------------------------------------
@@ -111,3 +109,67 @@ return new class extends Migration
         Schema::dropIfExists('order_payments');
     }
 };
+
+/*
+|--------------------------------------------------------------------------
+| Payment Method vs Gateway
+|--------------------------------------------------------------------------
+|
+| payment_method = How the customer paid.
+| gateway        = Which provider/system processed the payment.
+|
+| -------------------------------------------------------------------------
+| Manual Cash On Delivery (COD)
+| -------------------------------------------------------------------------
+| payment_method = cod
+| gateway        = null
+|
+| -------------------------------------------------------------------------
+| Manual Mobile Banking
+| -------------------------------------------------------------------------
+| payment_method = mobile_banking
+| gateway        = manual
+|
+| Example:
+| bKash (Manual)
+| Nagad (Manual)
+| Rocket (Manual)
+|
+| Customer manually transfers money and submits the transaction ID.
+| Admin verifies the payment manually.
+|
+| -------------------------------------------------------------------------
+| Manual Bank Transfer
+| -------------------------------------------------------------------------
+| payment_method = bank_transfer
+| gateway        = manual
+|
+| Customer deposits/transfers money to the company's bank account.
+| Admin verifies the payment manually.
+|
+| -------------------------------------------------------------------------
+| SSLCommerz
+| -------------------------------------------------------------------------
+| payment_method = card
+| gateway        = sslcommerz
+|
+| SSLCommerz processes Card, bKash, Nagad, Rocket, etc.
+| Gateway automatically verifies the payment.
+|
+| -------------------------------------------------------------------------
+| Stripe
+| -------------------------------------------------------------------------
+| payment_method = card
+| gateway        = stripe
+|
+| Stripe processes Visa, MasterCard, Apple Pay, Google Pay, etc.
+|
+| -------------------------------------------------------------------------
+| PayPal
+| -------------------------------------------------------------------------
+| payment_method = paypal
+| gateway        = paypal
+|
+| Payment is processed directly by PayPal.
+|
+*/

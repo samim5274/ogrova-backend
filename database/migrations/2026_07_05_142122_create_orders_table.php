@@ -72,7 +72,7 @@ return new class extends Migration
 
             $table->enum('payment_method',[
                 'cod',
-                'online'
+                'advance'
             ])->default('cod')->index();
 
             $table->enum('payment_status',[

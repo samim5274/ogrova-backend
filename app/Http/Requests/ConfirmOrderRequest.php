@@ -72,28 +72,22 @@ class ConfirmOrderRequest extends FormRequest
                 Rule::in(['cod', 'advance']),
             ],
 
-            'd_payment_method' => [
-                'bail',
-                Rule::requiredIf(
-                    fn () => $this->payment_method === 'advance'
-                ),
-                Rule::in(['bank', 'mobile_banking']),
-            ],
-
             /*
             |--------------------------------------------------------------------------
-            | Bank Payment
+            | Advance Payment
             |--------------------------------------------------------------------------
             */
+
+            'trans_payment_method' => [
+                'bail',
+                Rule::requiredIf(fn () => $this->payment_method === 'advance'),
+                Rule::in(['mobile', 'bank']),
+            ],
 
             'bank_name' => [
                 'bail',
                 'sometimes',
-                Rule::requiredIf(
-                    fn () =>
-                        $this->payment_method === 'advance'
-                        && $this->d_payment_method === 'bank'
-                ),
+                Rule::requiredIf(fn () => $this->payment_method === 'advance'),
                 'string',
                 'max:255',
             ],
@@ -101,42 +95,10 @@ class ConfirmOrderRequest extends FormRequest
             'account_number' => [
                 'bail',
                 'sometimes',
-                Rule::requiredIf(
-                    fn () =>
-                        $this->payment_method === 'advance'
-                        && $this->d_payment_method === 'bank'
-                ),
+                Rule::requiredIf(fn () => $this->payment_method === 'advance'),
                 'string',
+                'regex:/^[A-Za-z0-9\s\-]+$/',
                 'max:100',
-            ],
-
-            'account_holder_name' => [
-                'bail',
-                'sometimes',
-                Rule::requiredIf(
-                    fn () =>
-                        $this->payment_method === 'advance'
-                        && $this->d_payment_method === 'bank'
-                ),
-                'string',
-                'max:255',
-            ],
-
-            /*
-            |--------------------------------------------------------------------------
-            | Mobile Banking
-            |--------------------------------------------------------------------------
-            */
-
-            'mobile_number' => [
-                'bail',
-                'sometimes',
-                Rule::requiredIf(
-                    fn () =>
-                        $this->payment_method === 'advance'
-                        && $this->d_payment_method === 'mobile_banking'
-                ),
-                'regex:/^(?:\+8801|8801|01)[3-9]\d{8}$/',
             ],
 
             'transaction_id' => [
@@ -145,23 +107,23 @@ class ConfirmOrderRequest extends FormRequest
                 Rule::requiredIf(
                     fn () =>
                         $this->payment_method === 'advance'
-                        && $this->d_payment_method === 'mobile_banking'
+                        && $this->trans_payment_method === 'mobile'
                 ),
                 'string',
                 'max:100',
+                Rule::unique('order_payments', 'transaction_id'),
+            ],
 
-                'transaction_id' => [
-                    'bail',
-                    'sometimes',
-                    Rule::requiredIf(
-                        fn () =>
-                            $this->payment_method === 'advance'
-                            && $this->d_payment_method === 'mobile_banking'
-                    ),
-                    'string',
-                    'max:100',
-                    Rule::unique('transactions', 'transaction_id'),
-                ],
+            'account_holder_name' => [
+                'bail',
+                'sometimes',
+                Rule::requiredIf(
+                    fn () =>
+                        $this->payment_method === 'advance'
+                        && $this->trans_payment_method === 'bank'
+                ),
+                'string',
+                'max:255',
             ],
 
         ];
@@ -175,23 +137,26 @@ class ConfirmOrderRequest extends FormRequest
         return [
 
             'address_id.required' => 'Please select a shipping address.',
-            'address_id.exists'   => 'Selected address is invalid.',
+            'address_id.exists'   => 'Selected shipping address is invalid.',
 
             'payment_method.required' => 'Please select a payment method.',
-            'payment_method.in'       => 'Invalid payment method.',
+            'payment_method.in'       => 'Invalid payment method selected.',
 
-            'd_payment_method.required' => 'Please select an advance payment method.',
-            'd_payment_method.in'       => 'Invalid advance payment method.',
+            'remarks.max' => 'Remarks may not be greater than 1000 characters.',
 
-            'bank_name.required'           => 'Bank name is required.',
-            'account_number.required'      => 'Account number is required.',
-            'account_holder_name.required' => 'Account holder name is required.',
+            'trans_payment_method.required' => 'Please select a payment type.',
+            'trans_payment_method.in'       => 'Invalid payment type.',
 
-            'mobile_number.required' => 'Mobile number is required.',
-            'mobile_number.regex'    => 'Please enter a valid mobile number.',
+            'bank_name.required' => 'Bank / Mobile Banking name is required.',
+            'bank_name.in'       => 'Invalid Bank / Mobile Banking name.',
+
+            'account_number.required' => 'Account number is required.',
+            'account_number.regex'    => 'Invalid account number.',
 
             'transaction_id.required' => 'Transaction ID is required.',
             'transaction_id.unique'   => 'This transaction ID has already been used.',
+
+            'account_holder_name.required' => 'Account holder name is required.',
         ];
     }
 

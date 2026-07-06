@@ -84,7 +84,7 @@ class OrderController extends Controller
     //         'payment_method' => 'required|in:cod,advance',
 
     //         // Delivery Charge Payment Method
-    //         'd_payment_method' => [
+    //         'trans_payment_method' => [
     //             'nullable',
     //             Rule::requiredIf(fn () => $request->payment_method === 'cod'),
     //             Rule::in(['mobile','bank']),
@@ -95,14 +95,14 @@ class OrderController extends Controller
     //             'nullable',
     //             Rule::requiredIf(fn () =>
     //                 $request->payment_method === 'cod' &&
-    //                 $request->d_payment_method === 'mobile'
+    //                 $request->trans_payment_method === 'mobile'
     //             ),
     //         ],
     //         'transaction_id' => [
     //             'nullable',
     //             Rule::requiredIf(fn () =>
     //                 $request->payment_method === 'cod' &&
-    //                 $request->d_payment_method === 'mobile'
+    //                 $request->trans_payment_method === 'mobile'
     //             ),
     //         ],
 
@@ -111,11 +111,11 @@ class OrderController extends Controller
     //             'nullable',
     //             Rule::requiredIf(fn () =>
     //                 $request->payment_method === 'cod' &&
-    //                 $request->d_payment_method === 'bank'
+    //                 $request->trans_payment_method === 'bank'
     //             ),
     //         ],
-    //         'account_number' => 'nullable|required_if:d_payment_method,bank|string|max:100',
-    //         'account_holder_name' => 'nullable|required_if:d_payment_method,bank|string|max:255',
+    //         'account_number' => 'nullable|required_if:trans_payment_method,bank|string|max:100',
+    //         'account_holder_name' => 'nullable|required_if:trans_payment_method,bank|string|max:255',
     //     ]);
 
     //     if ($validator->fails()) {
@@ -195,7 +195,7 @@ class OrderController extends Controller
 
     //                 'order_id'              => $order->id,
     //                 'payment_date'          => now(),
-    //                 'payment_method'        => $request->d_payment_method,
+    //                 'payment_method'        => $request->trans_payment_method,
     //                 'amount'                => config('app.delivery_charge', 0), // delivery charge amount
     //                 'currency'              => 'BDT',
     //                 'bank_name'             => $request->bank_name,
@@ -295,7 +295,6 @@ class OrderController extends Controller
         DB::beginTransaction();
 
         try {
-            // $transactionId = $this->generateTransactionId();
 
             $order = Order::create([
                 'reg'                       => $reg,
@@ -304,11 +303,11 @@ class OrderController extends Controller
 
                 'amount'                    => $amount,
                 'discount'                  => $discount,
-                'payable_amount'            => max(0,$amount-$discount),
+                'payable_amount'            => $amount,
                 'currency'                  => 'BDT',
                 'point'                     => (int) $point,
 
-                'payment_method'            => $request->payment_method === 'advance' ? 'online' : 'cod',
+                'payment_method'            => $request->payment_method,
 
                 'payment_status'            => $request->payment_method === 'advance' ? 'Paid': 'Pending',
                 'paid_at'                   => $request->payment_method === 'advance' ? now() : null,
@@ -338,47 +337,44 @@ class OrderController extends Controller
 
             if ($request->payment_method === 'advance') {
 
-                $transactionId = 'TXN-' . now()->format('YmdHis') . '-' . strtoupper(Str::random(8));
-
-                // Transaction Table
-                Transaction::create([
-                    'transaction_id'      => $request->transaction_id,
-                    'user_id'             => $user->id,
-                    'amount'              => $order->payable_amount,
-                    'charge'              => 0,
-                    'net_amount'          => $order->payable_amount,
-                    'payment_method'      => 'online', // bkash/nagad/sslcommerz
-
-                    'status'              => 'paid',
-
-                    'is_confirm'          => true,
-
-                    'requested_at'        => now(),
-                    'processed_at'        => now(),
-                ]);
-
                 // Order Payment Table
                 OrderPayment::create([
-
                     'order_id'                  => $order->id,
                     'user_id'                   => $user->id,
 
-                    'payment_method'            => OrderPayment::METHOD_SSLCOMMERZ,
+                    'payment_method'            => $request->trans_payment_method === 'mobile'
+                                                    ? OrderPayment::METHOD_MOBILE_BANKING
+                                                    : OrderPayment::METHOD_BANK_TRANSFER,
                     // METHOD_MOBILE_BANKING
 
-                    'gateway'                   => 'SSLCommerz',
+                    'gateway'                   => 'manual',
 
                     'transaction_id'            => $request->transaction_id,
+                    'bank_name'                 => $request->bank_name,
+                    'account_number'            => $request->account_number,
+                    'account_holder_name'       => $request->account_holder_name,
 
                     'amount'                    => $order->payable_amount,
-
                     'currency'                  => 'BDT',
 
                     'status'                    => OrderPayment::STATUS_SUCCESS,
-
                     'paid_at'                   => now(),
 
                     'remarks'                   => 'Advance payment',
+
+                    // for SSL
+                    // 'payment_method' => OrderPayment::METHOD_CARD,
+                    // 'gateway'        => 'sslcommerz',
+                    // 'status'         => OrderPayment::STATUS_SUCCESS,
+                    // 'gateway_transaction_id' => $sslResponse['tran_id'],
+                    // 'gateway_response'       => json_encode($sslResponse),
+
+                    // For Stripe
+                    // 'payment_method' => OrderPayment::METHOD_CARD,
+                    // 'gateway'        => 'stripe',
+                    // 'status'         => OrderPayment::STATUS_SUCCESS,
+                    // 'gateway_transaction_id' => $paymentIntent->id,
+                    // 'gateway_response'       => json_encode($paymentIntent),
                 ]);
             }
 
