@@ -261,40 +261,40 @@ class OrderController extends Controller
             ], 401);
         }
 
-        $address = CustomerAddress::query()
-            ->whereKey($validated['address_id'])
-            ->where('user_id', $user->id)
-            ->firstOrFail();
-
-        if (!$address) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Shipping address not found.',
-            ], 404);
-        }
-
-        $cartItems = Cart::with('product')->where('reg', $reg)->where('user_id', $user->id)->get();
-        if ($cartItems->isEmpty()) {
-            return response()->json([
-                'success' => false,
-                'message' => "Cart items is empty.",
-            ]);
-        }
-
-        if (Order::where(['reg'=>$reg,'user_id'=>$user->id])->exists()) {
-            return response()->json([
-                'success' => false,
-                'message' => "Order already created.",
-            ]);
-        }
-
-        $amount     = $cartItems->sum(fn($item) => $item->price * $item->quantity);
-        $point      = $cartItems->sum(fn($item) => $item->point * $item->quantity);
-        $discount   = $cartItems->sum(fn($item) => $item->discount * $item->quantity);
-
         DB::beginTransaction();
 
         try {
+
+            // Customer Address
+            $address = CustomerAddress::query()
+                ->whereKey($validated['address_id'])
+                ->where('user_id', $user->id)
+                ->firstOrFail();
+
+            $cartItems = Cart::with('product')
+                ->where('reg', $reg)
+                ->where('user_id', $user->id)
+                ->lockForUpdate()
+                ->get();
+            if ($cartItems->isEmpty()) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => "Cart items is empty.",
+                ]);
+            }
+
+            if (Order::where(['reg'=>$reg,'user_id'=>$user->id])->lockForUpdate()->exists()) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => "Order already created.",
+                ]);
+            }
+
+            $amount     = $cartItems->sum(fn($item) => $item->price * $item->quantity);
+            $point      = $cartItems->sum(fn($item) => $item->point * $item->quantity);
+            $discount   = $cartItems->sum(fn($item) => $item->discount * $item->quantity);
 
             $order = Order::create([
                 'reg'                       => $reg,
@@ -307,10 +307,10 @@ class OrderController extends Controller
                 'currency'                  => 'BDT',
                 'point'                     => (int) $point,
 
-                'payment_method'            => $request->payment_method,
+                'payment_method'            => $validated['payment_method'],
 
-                'payment_status'            => $request->payment_method === 'advance' ? 'Paid': 'Pending',
-                'paid_at'                   => $request->payment_method === 'advance' ? now() : null,
+                'payment_status'            => $validated['payment_method'] === 'advance' ? 'Paid': 'Pending',
+                'paid_at'                   => $validated['payment_method'] === 'advance' ? now() : null,
 
                 'status'                    => 'Pending',
 
@@ -325,7 +325,7 @@ class OrderController extends Controller
                 'postal_code'               => $address->postal_code,
 
                 'shipping_address'          => $address->address,
-                'remarks'                   => $request->remarks ?? "N/A",
+                'remarks'                   => $validated['remarks'] ?? null,
             ]);
 
             if ($request->boolean('save_info')) {
@@ -335,24 +335,23 @@ class OrderController extends Controller
                 ]);
             }
 
-            if ($request->payment_method === 'advance') {
+            if ($validated['payment_method'] === 'advance') {
 
                 // Order Payment Table
                 OrderPayment::create([
                     'order_id'                  => $order->id,
                     'user_id'                   => $user->id,
 
-                    'payment_method'            => $request->trans_payment_method === 'mobile'
+                    'payment_method'            => $validated['trans_payment_method'] === 'mobile'
                                                     ? OrderPayment::METHOD_MOBILE_BANKING
                                                     : OrderPayment::METHOD_BANK_TRANSFER,
-                    // METHOD_MOBILE_BANKING
 
                     'gateway'                   => 'manual',
 
-                    'transaction_id'            => $request->transaction_id,
-                    'bank_name'                 => $request->bank_name,
-                    'account_number'            => $request->account_number,
-                    'account_holder_name'       => $request->account_holder_name,
+                    'transaction_id'            => $validated['transaction_id'],
+                    'bank_name'                 => $validated['bank_name'] ?? null,
+                    'account_number'            => $validated['account_number'] ?? null,
+                    'account_holder_name'       => $validated['account_holder_name'] ?? null,
 
                     'amount'                    => $order->payable_amount,
                     'currency'                  => 'BDT',
