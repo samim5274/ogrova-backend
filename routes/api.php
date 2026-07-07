@@ -269,9 +269,20 @@ Route::middleware('auth:sanctum','throttle:30,1')->group(function () {
             Route::get('/sale', [OrderController::class, 'reportSale']);
             Route::get('/sale/filter', [OrderController::class, 'reportSaleFilter']);
         });
+
+        Route::post('/check-coupon', [CouponController::class, 'checkCoupon']);
     });
 });
 
+// =============================
+// Coupon Controller
+// =============================
+use App\Http\Controllers\Order\CouponController;
+Route::middleware('auth:sanctum','throttle:30,1')->group(function () {
+    Route::prefix('coupon')->group(function () {
+        Route::post('/check', [CouponController::class, 'checkCoupon']);
+    });
+});
 
 
 
