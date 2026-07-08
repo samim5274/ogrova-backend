@@ -22,11 +22,15 @@ class ConfirmOrderRequest extends FormRequest
      */
     public function rules(): array
     {
+        $isAdvance = $this->payment_method === 'advance';
+        $isBank = $isAdvance && $this->trans_payment_method === 'bank';
+        $isMobile = $isAdvance && $this->trans_payment_method === 'mobile';
+
         return [
 
             /*
             |--------------------------------------------------------------------------
-            | General
+            | Order
             |--------------------------------------------------------------------------
             */
 
@@ -48,7 +52,7 @@ class ConfirmOrderRequest extends FormRequest
 
             /*
             |--------------------------------------------------------------------------
-            | Address
+            | Shipping Address
             |--------------------------------------------------------------------------
             */
 
@@ -57,7 +61,7 @@ class ConfirmOrderRequest extends FormRequest
                 'required',
                 'integer',
                 Rule::exists('customer_addresses', 'id')
-                    ->where(fn ($query) => $query->where('user_id', auth()->id())),
+                    ->where('user_id', auth()->id()),
             ],
 
             /*
@@ -80,22 +84,20 @@ class ConfirmOrderRequest extends FormRequest
 
             'trans_payment_method' => [
                 'bail',
-                Rule::requiredIf(fn () => $this->payment_method === 'advance'),
+                Rule::requiredIf($isAdvance),
                 Rule::in(['mobile', 'bank']),
             ],
 
             'bank_name' => [
                 'bail',
-                'sometimes',
-                Rule::requiredIf(fn () => $this->payment_method === 'advance'),
+                Rule::requiredIf($isAdvance),
                 'string',
                 'max:255',
             ],
 
             'account_number' => [
                 'bail',
-                'sometimes',
-                Rule::requiredIf(fn () => $this->payment_method === 'advance'),
+                Rule::requiredIf($isAdvance),
                 'string',
                 'regex:/^[A-Za-z0-9\s\-]+$/',
                 'max:100',
@@ -103,12 +105,8 @@ class ConfirmOrderRequest extends FormRequest
 
             'transaction_id' => [
                 'bail',
-                'sometimes',
-                Rule::requiredIf(
-                    fn () =>
-                        $this->payment_method === 'advance'
-                        && $this->trans_payment_method === 'mobile'
-                ),
+                Rule::requiredIf($isMobile),
+                'nullable',
                 'string',
                 'max:100',
                 Rule::unique('order_payments', 'transaction_id'),
@@ -116,16 +114,36 @@ class ConfirmOrderRequest extends FormRequest
 
             'account_holder_name' => [
                 'bail',
-                'sometimes',
-                Rule::requiredIf(
-                    fn () =>
-                        $this->payment_method === 'advance'
-                        && $this->trans_payment_method === 'bank'
-                ),
+                Rule::requiredIf($isBank),
                 'string',
                 'max:255',
             ],
 
+            /*
+            |--------------------------------------------------------------------------
+            | Coupon
+            |--------------------------------------------------------------------------
+            */
+
+            'coupon' => [
+                'nullable',
+                'string',
+                'max:100',
+                Rule::exists('coupons', 'code')->where(function ($query) {
+
+                    $query->where('is_active', true);
+
+                    $query->where(function ($q) {
+                        $q->whereNull('start_date')
+                            ->orWhere('start_date', '<=', now());
+                    });
+
+                    $query->where(function ($q) {
+                        $q->whereNull('end_date')
+                            ->orWhere('end_date', '>=', now());
+                    });
+                }),
+            ],
         ];
     }
 
@@ -142,21 +160,40 @@ class ConfirmOrderRequest extends FormRequest
             'payment_method.required' => 'Please select a payment method.',
             'payment_method.in'       => 'Invalid payment method selected.',
 
-            'remarks.max' => 'Remarks may not be greater than 1000 characters.',
+            'remarks.max' => 'Remarks may not exceed 1000 characters.',
 
-            'trans_payment_method.required' => 'Please select a payment type.',
-            'trans_payment_method.in'       => 'Invalid payment type.',
+            'trans_payment_method.required' => 'Please select an advance payment method.',
+            'trans_payment_method.in'       => 'Invalid advance payment method.',
 
-            'bank_name.required' => 'Bank / Mobile Banking name is required.',
-            'bank_name.in'       => 'Invalid Bank / Mobile Banking name.',
+            'bank_name.required' => 'Bank or Mobile Banking name is required.',
 
             'account_number.required' => 'Account number is required.',
-            'account_number.regex'    => 'Invalid account number.',
+            'account_number.regex'    => 'Invalid account number format.',
 
             'transaction_id.required' => 'Transaction ID is required.',
             'transaction_id.unique'   => 'This transaction ID has already been used.',
 
             'account_holder_name.required' => 'Account holder name is required.',
+
+            'coupon.exists' => 'Invalid or expired coupon code.',
+            'coupon.max'    => 'Coupon code may not exceed 100 characters.',
+        ];
+    }
+
+    /**
+     * Custom Attribute Names
+     */
+    public function attributes(): array
+    {
+        return [
+            'address_id' => 'shipping address',
+            'payment_method' => 'payment method',
+            'trans_payment_method' => 'advance payment method',
+            'bank_name' => 'bank/mobile banking',
+            'account_number' => 'account number',
+            'transaction_id' => 'transaction ID',
+            'account_holder_name' => 'account holder name',
+            'coupon' => 'coupon code',
         ];
     }
 
@@ -169,7 +206,7 @@ class ConfirmOrderRequest extends FormRequest
             response()->json([
                 'success' => false,
                 'message' => $validator->errors()->first(),
-                'errors'  => $validator->errors(),
+                'errors' => $validator->errors(),
             ], 422)
         );
     }

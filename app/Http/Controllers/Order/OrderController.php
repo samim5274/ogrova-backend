@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Order;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -26,6 +27,8 @@ use App\Models\ShippingZone;
 use App\Models\CustomerAddress;
 use App\Models\Transaction;
 use App\Models\OrderPayment;
+use App\Models\Coupon;
+use App\Models\CouponUsage;
 
 class OrderController extends Controller
 {
@@ -265,17 +268,17 @@ class OrderController extends Controller
 
             $response = DB::transaction(function () use ($validated, $user, $reg, $request) {
 
-                // Customer Address
-                $address = CustomerAddress::whereKey($validated['address_id'])
-                    ->where('user_id', $user->id)
-                    ->first();
+                if (Order::where([
+                    'reg' => $reg,
+                    'user_id' => $user->id
+                ])->lockForUpdate()->exists()) {
 
-                if (!$address) {
                     throw ValidationException::withMessages([
-                        'address_id' => ['Address not found.']
+                        'order' => ['Order already created.']
                     ]);
                 }
 
+                // ---------------- Cart Section ----------------
                 $cartItems = Cart::where('reg', $reg)
                     ->where('user_id', $user->id)
                     ->lockForUpdate()
@@ -287,30 +290,133 @@ class OrderController extends Controller
                     ]);
                 }
 
-                if (Order::where([
-                    'reg' => $reg,
-                    'user_id' => $user->id
-                ])->lockForUpdate()->exists()) {
+                // ---------------- Customer Address ----------------
+                $address = CustomerAddress::whereKey($validated['address_id'])
+                    ->where('user_id', $user->id)
+                    ->first();
 
+                if (!$address) {
                     throw ValidationException::withMessages([
-                        'order' => ['Order already created.']
+                        'address_id' => ['Address not found.']
                     ]);
                 }
 
-                $amount     = $cartItems->sum(fn($item) => $item->price * $item->quantity);
-                $point      = $cartItems->sum(fn($item) => $item->point * $item->quantity);
-                $discount   = $cartItems->sum(fn($item) => $item->discount * $item->quantity);
+                // ---------------- Shipping Charge ----------------
+                $shippingZone = ShippingZone::query()
+                    ->where('district_id', $address->district_id)
+                    ->where('is_active', true)
+                    ->first();
 
+                if (!$shippingZone) {
+                    throw ValidationException::withMessages([
+                        'address_id' => ['Delivery is not available in this area.'],
+                    ]);
+                }
+
+                $deliveryCharge = round($shippingZone->delivery_charge, 2);
+                $codCharge = $validated['payment_method'] === 'cod' ? round($shippingZone->cod_charge, 2) : 0;
+
+                $amount   = round($cartItems->sum(fn ($item) => $item->price * $item->quantity), 2);
+                $point    = (int) $cartItems->sum(fn ($item) => $item->point * $item->quantity);
+                $discount = round($cartItems->sum(fn ($item) => $item->discount * $item->quantity));
+
+                $netAmount = round(max(0, $amount - $discount), 2);
+
+
+
+                // ---------------- Coupon Section ----------------
+                $coupon = null;
+                $couponDiscount = 0;
+
+                if (!empty($validated['coupon'])) {
+
+                    $coupon = Coupon::lockForUpdate()
+                        ->where('code', $validated['coupon'])
+                        ->where('is_active', true)
+                        ->first();
+
+                    if (!$coupon) {
+                        throw ValidationException::withMessages([
+                            'coupon' => ['Invalid coupon code.']
+                        ]);
+                    }
+
+                    // Date validation
+                    if ($coupon->start_date && now()->lt($coupon->start_date)) {
+                        throw ValidationException::withMessages([
+                            'coupon' => ['Coupon is not active yet.']
+                        ]);
+                    }
+
+                    if ($coupon->end_date && now()->gt($coupon->end_date)) {
+                        throw ValidationException::withMessages([
+                            'coupon' => ['Coupon has expired.']
+                        ]);
+                    }
+
+                    // Global usage limit
+                    if (
+                        !is_null($coupon->usage_limit) &&
+                        $coupon->used_count >= $coupon->usage_limit
+                    ) {
+                        throw ValidationException::withMessages([
+                            'coupon' => ['Coupon usage limit exceeded.']
+                        ]);
+                    }
+
+                    // Per user usage
+                    if (
+                        CouponUsage::where('coupon_id', $coupon->id)
+                            ->where('user_id', $user->id)
+                            ->exists()
+                    ) {
+                        throw ValidationException::withMessages([
+                            'coupon' => ['You have already used this coupon.']
+                        ]);
+                    }
+
+                    // Minimum order
+                    if (!is_null($coupon->minimum_amount) && $netAmount < $coupon->minimum_amount) {
+                        throw ValidationException::withMessages([
+                            'coupon' => ['Minimum order amount is ' . $coupon->minimum_amount],
+                        ]);
+                    }
+
+
+                    // Discount
+                    if ($coupon->discount_type === 'percent') {
+                        $couponDiscount = ($netAmount * $coupon->discount) / 100;
+
+                        if (!empty($coupon->maximum_discount) && $couponDiscount > $coupon->maximum_discount) {
+                            $couponDiscount = $coupon->maximum_discount;
+                        }
+                    } else {
+                        $couponDiscount = $coupon->discount;
+                    }
+
+                    $couponDiscount = round(min($couponDiscount, $netAmount), 2);
+                }
+
+                $totalDiscount = round($discount + $couponDiscount, 2);
+                $payableAmount = round(max(0, ($amount - $totalDiscount) + $deliveryCharge + $codCharge), 2);
+
+                // ---------------- Create Order ----------------
                 $order = Order::create([
                     'reg'                       => $reg,
                     'date'                      => now()->toDateString(),
                     'user_id'                   => $user->id,
 
+                    'coupon_id'                 => $coupon?->id,
+                    'coupon_code'               => $coupon?->code,
+
                     'amount'                    => $amount,
-                    'discount'                  => $discount,
-                    'payable_amount'            => max(0,$amount - $discount),
+                    'coupon_discount'           => $couponDiscount,
+                    'shipping_charge'           => $deliveryCharge,
+                    // 'cod_charge'             => $codCharge,
+                    'discount'                  => $totalDiscount,
+                    'payable_amount'            => $payableAmount,
                     'currency'                  => Order::CURRENCY_BDT,
-                    'point'                     => (int) $point,
+                    'point'                     => $point,
 
                     'payment_method'            => $validated['payment_method'],
 
@@ -341,6 +447,7 @@ class OrderController extends Controller
                     ]);
                 }
 
+                // ---------------- Order Payment (advance payment) ----------------
                 if ($validated['payment_method'] === 'advance') {
 
                     // Order Payment Table
@@ -383,13 +490,29 @@ class OrderController extends Controller
                     ]);
                 }
 
-                    return response()->json([
+                if ($coupon) {
+                    CouponUsage::create([
+                        'coupon_id'         => $coupon->id,
+                        'user_id'           => $user->id,
+                        'order_id'          => $order->id,
+
+                        'discount_amount'   => $couponDiscount,
+                        'order_amount'      => $amount,
+
+                        'coupon_code'       => $coupon->code,
+                    ]);
+
+                    $coupon->increment('used_count');
+                }
+
+                return response()->json([
                     'success' => true,
                     'message' => 'Order placed successfully.',
                     'data' => [
                         'order_id' => $order->id,
                         'order_number' => $order->reg,
                         'payment_status' => $order->payment_status,
+                        'payable_amount' => $order->payable_amount,
                     ]
                 ], 201);
             });
@@ -399,7 +522,7 @@ class OrderController extends Controller
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed.',
+                'message' => collect($e->errors())->flatten()->first(),
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Throwable $e) {
