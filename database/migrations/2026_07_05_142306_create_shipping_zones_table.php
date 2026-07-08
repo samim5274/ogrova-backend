@@ -13,24 +13,42 @@ return new class extends Migration
     {
         Schema::create('shipping_zones', function (Blueprint $table) {
             $table->id();
+
+            // Location
             $table->foreignId('division_id')->nullable()->constrained()->nullOnDelete();
-
             $table->foreignId('district_id')->nullable()->constrained()->nullOnDelete();
-
             $table->foreignId('upazila_id')->nullable()->constrained()->nullOnDelete();
 
-            // Delivery Charge
-            $table->decimal('inside_charge', 10, 2)->default(0);
-            $table->decimal('outside_charge', 10, 2)->default(0);
+            // Zone Name
+            $table->string('name')->nullable();
+
+            // Shipping Charge
+            $table->decimal('delivery_charge', 10, 2)->default(0);
 
             // Extra COD Charge
             $table->decimal('cod_charge', 10, 2)->default(0);
 
-            // Estimated Delivery Time
-            $table->unsignedTinyInteger('estimated_days')->default(2);
+            // Free Shipping
+            $table->boolean('free_shipping')->default(false);
 
-            // Active/Inactive
+            // Free Shipping Above Amount
+            $table->decimal('free_shipping_amount', 10, 2)->nullable();
+
+            // Weight Limit (KG)
+            $table->decimal('max_weight', 8, 2)->nullable();
+
+            // Estimated Delivery
+            $table->unsignedTinyInteger('min_delivery_days')->default(1);
+            $table->unsignedTinyInteger('max_delivery_days')->default(3);
+
+            // Cash On Delivery
+            $table->boolean('cod_available')->default(true);
+
+            // Status
             $table->boolean('is_active')->default(true);
+
+            // Priority (Specific rule first)
+            $table->unsignedInteger('priority')->default(1);
 
             $table->timestamps();
         });

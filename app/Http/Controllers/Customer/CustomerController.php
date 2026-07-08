@@ -26,6 +26,7 @@ use App\Models\ProductVariant;
 use App\Models\PointTransaction;
 use App\Models\Transaction;
 use App\Models\CustomerAddress;
+use App\Models\ShippingZone;
 
 class CustomerController extends Controller
 {
@@ -50,6 +51,20 @@ class CustomerController extends Controller
             ->orderByDesc('is_default')
             ->latest()
             ->get();
+
+            // Delivery Charge Attach
+            $addresses->transform(function ($address) {
+
+                $shippingZone = ShippingZone::where('district_id', $address->district_id)
+                    ->where('is_active', true)
+                    ->first();
+
+                $address->delivery_charge = $shippingZone?->delivery_charge ?? 120;
+                $address->cod_charge = $shippingZone?->cod_charge ?? 0;
+                $address->estimated_days = $shippingZone?->max_delivery_days ?? 2;
+
+                return $address;
+            });
 
             return response()->json([
                 'success' => true,
