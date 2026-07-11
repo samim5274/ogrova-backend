@@ -894,4 +894,12 @@ class OrderController extends Controller
             ], 500);
         }
     }
+
+    public function confirmPayment($reg)
+    {
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment confirm successfully.',
+        ], 404);
+    }
 }
