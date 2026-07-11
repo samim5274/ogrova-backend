@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Http\JsonResponse;
 
 use App\Http\Requests\ConfirmOrderRequest;
 use App\Models\User;
@@ -563,27 +564,44 @@ class OrderController extends Controller
 
     public function getOrderDetails($reg){
         try{
-            $order = Order::with('user')
+            $order = Order::with(['user', 'payment'])
                 ->where('reg', $reg)
                 ->first();
 
-            if (!$order) {
+            if (! $order) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Order not found.',
-                    'data' => null,
+                    'data'    => null,
                 ], 404);
+            }
+
+
+            $orderPayment = null;
+
+            if ($order->payment_method === Order::PAYMENT_METHOD_ONLINE) {
+                $orderPayment = OrderPayment::with('verifier:id,name,email')->where('order_id', $order->id)->first();
             }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Order fetched successfully.',
-                'data' => $order,
+                'data' => [
+                    'order' => $order,
+                    'payment' => $orderPayment,
+                ],
             ], 200);
         } catch (\Throwable $e) {
+            Log::error('Failed to fetch order details.', [
+                'registration' => $reg,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch order. Please try again later.',
+                'message' => 'Something went wrong while fetching order details.',
             ], 500);
         }
     }
@@ -797,6 +815,82 @@ class OrderController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch orders. Please try again later.',
+            ], 500);
+        }
+    }
+
+    public function verifyPayment(int $paymentId): JsonResponse
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized.',
+            ], 401);
+        }
+
+        try {
+
+            $orderPayment = OrderPayment::find($paymentId);
+
+            if (! $orderPayment) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Payment record not found.',
+                ], 404);
+            }
+
+            if ($orderPayment->status === OrderPayment::STATUS_SUCCESS) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This payment has already been verified.',
+                ], 422);
+            }
+
+            $order = Order::find($orderPayment->order_id);
+
+            if (! $order) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order not found.',
+                ], 404);
+            }
+
+            DB::transaction(function () use ($orderPayment, $order, $user)
+            {
+                $orderPayment->update([
+                    'status'      => OrderPayment::STATUS_SUCCESS,
+                    'verified_by' => $user->id,
+                    'verified_at' => now(),
+                ]);
+
+                $order->update([
+                    'payment_status' => Order::PAYMENT_PAID,
+                    'paid_at'        => now(),
+                ]);
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment verified successfully.',
+                'data' => [
+                    'payment_id' => $orderPayment->id,
+                    'order_id'   => $order->id,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Payment verification failed.', [
+                'payment_id' => $paymentId,
+                'user_id'    => $user->id,
+                'message'    => $e->getMessage(),
+                'file'       => $e->getFile(),
+                'line'       => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to verify payment. Please try again later.',
             ], 500);
         }
     }

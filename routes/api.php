@@ -256,7 +256,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // E-commerce Admin order Routes
 // =============================
 use App\Http\Controllers\Order\OrderController;
-Route::middleware('auth:sanctum','throttle:30,1')->group(function () {
+Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('orders')->group(function () {
         Route::get('/', [OrderController::class, 'index']);
         Route::get('/status', [OrderController::class, 'statusFilter']);
@@ -264,6 +264,7 @@ Route::middleware('auth:sanctum','throttle:30,1')->group(function () {
         Route::post('/update-status/{reg}', [OrderController::class, 'updateStatus']);
         Route::get('/customer/{user_id}', [OrderController::class, 'getCustomerDetails']);
         Route::post('/confirm/{reg}', [OrderController::class, 'confirmOrder']);
+        Route::post('/payments/{payment_id}/verify', [OrderController::class, 'verifyPayment']);
 
         Route::prefix('reports')->group(function(){
             Route::get('/sale', [OrderController::class, 'reportSale']);
@@ -278,7 +279,7 @@ Route::middleware('auth:sanctum','throttle:30,1')->group(function () {
 // Coupon Controller
 // =============================
 use App\Http\Controllers\Order\CouponController;
-Route::middleware('auth:sanctum','throttle:30,1')->group(function () {
+Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('coupon')->group(function () {
         Route::post('/check', [CouponController::class, 'checkCoupon']);
     });
