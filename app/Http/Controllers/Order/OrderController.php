@@ -1004,6 +1004,18 @@ class OrderController extends Controller
                         => OrderPayment::PROVIDER_MANUAL,
                 };
 
+                if( $validated['payment_method'] === OrderPayment::METHOD_MOBILE_BANKING)
+                {
+                    $bankName           = $validated['provider'];
+                    $accountNumber      = $validated['sender_mobile'] ?? null;
+                    $accountHolderName  = $validated['sender_name'] ?? null;
+                } else
+                {
+                    $bankName           = $validated['bank_name'] ?? null;
+                    $accountNumber      = $validated['account_number'] ?? null;
+                    $accountHolderName  = $validated['account_holder_name'] ?? null;
+                }
+
                 // Order Payment Table
                 $orderPayment = OrderPayment::create([
                     'order_id'                  => $order->id,
@@ -1014,13 +1026,13 @@ class OrderController extends Controller
                     'payment_type'              => OrderPayment::TYPE_PAYMENT,
 
                     // Manual verification required
-                    // 'channel'                   => OrderPayment::getChannel($validated['payment_method']),
+                    'channel'                   => OrderPayment::getChannel($validated['payment_method']),
 
                     // Transaction
                     'transaction_id'            => $validated['transaction_id'] ?? null,
-                    'bank_name'                 => $validated['bank_name'] ?? null,
-                    'account_number'            => $validated['account_number'] ?? null,
-                    'account_holder_name'       => $validated['account_holder_name'] ?? null,
+                    'bank_name'                 => $bankName,
+                    'account_number'            => $accountNumber,
+                    'account_holder_name'       => $accountHolderName,
                     'sender_mobile'             => $validated['sender_mobile'] ?? null,
                     'sender_name'               => $validated['sender_name'] ?? null,
 
@@ -1040,6 +1052,7 @@ class OrderController extends Controller
                     'receipt_no'                => $receiptNo,
 
                     'verified_by'               => $user->id,
+                    'received_by'               => $user->id,
                     'verified_at'               => now(),
                     'remarks'                   => $validated['remarks'] ?? null,
                 ]);
