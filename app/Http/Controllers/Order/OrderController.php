@@ -460,34 +460,59 @@ class OrderController extends Controller
                                                         ? OrderPayment::METHOD_MOBILE_BANKING
                                                         : OrderPayment::METHOD_BANK_TRANSFER,
 
-                        'gateway'                   => 'manual',
+                        // Manual verification required
+                        'provider'                  => OrderPayment::PROVIDER_MANUAL,
+                        'channel'                   => OrderPayment::CHANNEL_OFFLINE,
+                        'payment_type'              => OrderPayment::TYPE_PAYMENT,
 
+                        // Transaction
                         'transaction_id'            => $validated['transaction_id'],
                         'bank_name'                 => $validated['bank_name'] ?? null,
                         'account_number'            => $validated['account_number'] ?? null,
                         'account_holder_name'       => $validated['account_holder_name'] ?? null,
+                        'sender_mobile'             => $validated['sender_mobile'] ?? null,
+                        'sender_name'               => $validated['sender_name'] ?? null,
 
+                        // Amount
                         'amount'                    => $order->payable_amount,
+                        'gateway_fee'               => 0,
+                        'net_amount'                => $order->payable_amount,
                         'currency'                  => OrderPayment::CURRENCY_BDT,
 
+                        // Status
                         'status'                    => OrderPayment::STATUS_PENDING,
-                        'paid_at'                   => now(),
+                        'paid_at'                   => null,
 
-                        'remarks'                   => 'Advance payment',
+                        // Security
+                        'ip_address'                => request()->ip(),
+                        'user_agent'                => request()->userAgent(),
+                        'receipt_no'                => null,
 
-                        // for SSL
+                        'remarks'                   => 'Advance payment submitted. Waiting for admin verification.',
+
+                        // for SSLCommerz
                         // 'payment_method' => OrderPayment::METHOD_CARD,
-                        // 'gateway'        => 'sslcommerz',
-                        // 'status'         => OrderPayment::STATUS_SUCCESS,
+                        // 'provider'       => OrderPayment::PROVIDER_SSLCOMMERZ,
+                        // 'channel'        => OrderPayment::CHANNEL_ONLINE,
+                        // 'payment_type'   => OrderPayment::TYPE_PAYMENT,
+
                         // 'gateway_transaction_id' => $sslResponse['tran_id'],
-                        // 'gateway_response'       => json_encode($sslResponse),
+                        // 'gateway_response'        => $sslResponse,
 
-                        // For Stripe
+                        // 'status'  => OrderPayment::STATUS_SUCCESS,
+                        // 'paid_at' => now(),
+
+                        // for Stripe
                         // 'payment_method' => OrderPayment::METHOD_CARD,
-                        // 'gateway'        => 'stripe',
-                        // 'status'         => OrderPayment::STATUS_SUCCESS,
+                        // 'provider'       => OrderPayment::PROVIDER_STRIPE,
+                        // 'channel'        => OrderPayment::CHANNEL_ONLINE,
+                        // 'payment_type'   => OrderPayment::TYPE_PAYMENT,
+
                         // 'gateway_transaction_id' => $paymentIntent->id,
-                        // 'gateway_response'       => json_encode($paymentIntent),
+                        // 'gateway_response'        => $paymentIntent->toArray(),
+
+                        // 'status'  => OrderPayment::STATUS_SUCCESS,
+                        // 'paid_at' => now(),
                     ]);
                 }
 
@@ -863,10 +888,13 @@ class OrderController extends Controller
                     'status'      => OrderPayment::STATUS_SUCCESS,
                     'verified_by' => $user->id,
                     'verified_at' => now(),
+                    'remarks'     => 'Advance payment submitted. An admin payment verified.',
                 ]);
 
                 $order->update([
                     'payment_status' => Order::PAYMENT_PAID,
+                    'paid_amount'    => $order->payable_amount,
+                    'due_amount'     => ($orderPayment->net_amount - $order->payable_amount),
                     'paid_at'        => now(),
                 ]);
             });

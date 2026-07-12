@@ -24,13 +24,63 @@ return new class extends Migration
 
             $table->enum('payment_method',[
                 'cod',
+                'cash',
                 'bank_transfer',
                 'mobile_banking',
                 'card',
                 'paypal',
+                'wallet',
             ]);
 
-            $table->string('gateway')->nullable(); // manual, sslcommerz ,stripe, bkash, nagad, rocket
+            /*
+            |--------------------------------------------------------------------------
+            | Provider
+            |--------------------------------------------------------------------------
+            |
+            | cash
+            | manual
+            | bank
+            | bkash
+            | nagad
+            | rocket
+            | sslcommerz
+            | stripe
+            | paypal
+            |
+            */
+            $table->string('provider')->nullable();
+
+            /*
+            |-------------------------------------------------------------------------
+            | payment_method | provider   |
+            | -------------- | ---------- |
+            | mobile_banking | bkash      |
+            | mobile_banking | nagad      |
+            | card           | stripe     |
+            | card           | sslcommerz |
+            | cod            | cash       |
+            |-------------------------------------------------------------------------
+            */
+
+            $table->enum('payment_type',[
+                'Payment',
+                'Refund',
+                'Adjustment'
+            ])->default('Payment');
+
+            /*
+            |---------------------------
+            |   Cash = Offline
+            |   Bank = Offline
+            |   SSL = Online
+            |   Stripe = Online
+            |---------------------------
+            */
+
+            $table->enum('channel',[
+                'Offline',
+                'Online'
+            ]);
 
             /*
             |--------------------------------------------------------------------------
@@ -47,9 +97,18 @@ return new class extends Migration
             |--------------------------------------------------------------------------
             | Amount
             |--------------------------------------------------------------------------
+            |
+            | amount       = Customer paid amount
+            |
+            | gateway_fee  = Gateway processing fee
+            |
+            | net_amount   = amount - gateway_fee
+            |
             */
 
             $table->decimal('amount',12,2);
+            $table->decimal('gateway_fee',12,2)->default(0);
+            $table->decimal('net_amount',12,2)->default(0);
             $table->char('currency',3)->default('BDT');
             /*
             |--------------------------------------------------------------------------
@@ -61,6 +120,7 @@ return new class extends Migration
             $table->string('account_number')->nullable();
             $table->string('account_holder_name')->nullable();
             $table->string('sender_mobile')->nullable();
+            $table->string('sender_name')->nullable();
 
             /*
             |--------------------------------------------------------------------------
@@ -68,7 +128,7 @@ return new class extends Migration
             |--------------------------------------------------------------------------
             */
 
-            $table->longText('gateway_response')->nullable();
+            $table->json('gateway_response')->nullable();
 
             /*
             |--------------------------------------------------------------------------
@@ -84,7 +144,7 @@ return new class extends Migration
                 'Cancelled',
                 'Refunded'
             ])->default('Pending');
-
+            $table->text('failure_reason')->nullable();
             $table->timestamp('paid_at')->nullable();
 
             /*
@@ -95,9 +155,36 @@ return new class extends Migration
 
             $table->foreignId('verified_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('verified_at')->nullable();
+            $table->foreignId('received_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->string('reference',255)->nullable();
             $table->text('remarks')->nullable();
 
+            /*
+            |--------------------------------------------------------------------------
+            | Security
+            |--------------------------------------------------------------------------
+            */
+
+            $table->ipAddress('ip_address')->nullable();
+            $table->text('user_agent')->nullable();
+            $table->string('receipt_no')->nullable()->unique();
+
             $table->timestamps();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Indexing
+            |--------------------------------------------------------------------------
+            */
+
+            $table->index(['order_id','status']);
+            $table->index(['payment_method','status']);
+            $table->index(['provider','status']);
+            $table->index(['payment_type','status']);
+            $table->index(['paid_at','status']);
+
+            $table->index(['user_id','status']);
+            $table->index(['user_id','created_at']);
         });
     }
 
@@ -112,23 +199,23 @@ return new class extends Migration
 
 /*
 |--------------------------------------------------------------------------
-| Payment Method vs Gateway
+| Payment Method vs provider
 |--------------------------------------------------------------------------
 |
 | payment_method = How the customer paid.
-| gateway        = Which provider/system processed the payment.
+| provider       = Which provider/system processed the payment.
 |
 | -------------------------------------------------------------------------
 | Manual Cash On Delivery (COD)
 | -------------------------------------------------------------------------
 | payment_method = cod
-| gateway        = null
+| provider       = null
 |
 | -------------------------------------------------------------------------
 | Manual Mobile Banking
 | -------------------------------------------------------------------------
 | payment_method = mobile_banking
-| gateway        = manual
+| provider       = manual
 |
 | Example:
 | bKash (Manual)
@@ -142,7 +229,7 @@ return new class extends Migration
 | Manual Bank Transfer
 | -------------------------------------------------------------------------
 | payment_method = bank_transfer
-| gateway        = manual
+| provider       = manual
 |
 | Customer deposits/transfers money to the company's bank account.
 | Admin verifies the payment manually.
@@ -151,16 +238,16 @@ return new class extends Migration
 | SSLCommerz
 | -------------------------------------------------------------------------
 | payment_method = card
-| gateway        = sslcommerz
+| provider       = sslcommerz
 |
 | SSLCommerz processes Card, bKash, Nagad, Rocket, etc.
-| Gateway automatically verifies the payment.
+| provider automatically verifies the payment.
 |
 | -------------------------------------------------------------------------
 | Stripe
 | -------------------------------------------------------------------------
 | payment_method = card
-| gateway        = stripe
+| provider       = stripe
 |
 | Stripe processes Visa, MasterCard, Apple Pay, Google Pay, etc.
 |
@@ -168,7 +255,7 @@ return new class extends Migration
 | PayPal
 | -------------------------------------------------------------------------
 | payment_method = paypal
-| gateway        = paypal
+| provider       = paypal
 |
 | Payment is processed directly by PayPal.
 |

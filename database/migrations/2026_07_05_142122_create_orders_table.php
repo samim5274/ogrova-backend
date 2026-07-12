@@ -59,6 +59,8 @@ return new class extends Migration
             $table->decimal('tax',12,2)->default(0);
             $table->decimal('discount',12,2)->default(0);
             $table->decimal('payable_amount',12,2)->default(0);
+            $table->decimal('paid_amount',12,2)->default(0);
+            $table->decimal('due_amount',12,2)->default(0);
 
             $table->char('currency',3)->default('BDT');
 
@@ -75,13 +77,14 @@ return new class extends Migration
                 'advance'
             ])->default('cod')->index();
 
-            $table->enum('payment_status',[
-                'Pending',
-                'Partial',
-                'Paid',
-                'Failed',
-                'Refunded'
-            ])->default('Pending')->index();
+            $table->string('payment_status', 20)->default('pending')->index();
+            /*
+            |   'Pending',
+            |   'Partial',
+            |   'Paid',
+            |   'Failed',
+            |   'Refunded'
+            */
 
             $table->timestamp('paid_at')->nullable()->index();
             $table->timestamp('submitted_at')->nullable()->index(); // advance then submitted

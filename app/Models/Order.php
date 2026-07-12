@@ -65,6 +65,8 @@ class Order extends Model
         'tax',
         'discount',
         'payable_amount',
+        'paid_amount',
+        'due_amount',
         'currency',
         'point',
 
