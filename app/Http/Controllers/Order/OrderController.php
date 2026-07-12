@@ -14,6 +14,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Http\JsonResponse;
 
 use App\Http\Requests\ConfirmOrderRequest;
+use App\Http\Requests\ConfirmPaymentRequest;
 use App\Models\User;
 use App\Models\Order;
 use App\Models\PointTransaction;
@@ -844,7 +845,7 @@ class OrderController extends Controller
         }
     }
 
-    public function verifyPayment(int $paymentId): JsonResponse
+    public function verifyPayment(Request $request, int $paymentId): JsonResponse
     {
         $user = auth()->user();
 
@@ -882,13 +883,15 @@ class OrderController extends Controller
                 ], 404);
             }
 
-            DB::transaction(function () use ($orderPayment, $order, $user)
+            DB::transaction(function () use ($request, $orderPayment, $order, $user)
             {
                 $orderPayment->update([
                     'status'      => OrderPayment::STATUS_SUCCESS,
                     'verified_by' => $user->id,
                     'verified_at' => now(),
                     'remarks'     => 'Advance payment submitted. An admin payment verified.',
+                    'ip_address'  => $request->ip(),
+                    'user_agent'  => $request->userAgent(),
                 ]);
 
                 $order->update([
@@ -923,11 +926,175 @@ class OrderController extends Controller
         }
     }
 
-    public function confirmPayment($reg)
+    public function confirmPayment(ConfirmPaymentRequest $request, $reg)
     {
-        return response()->json([
-            'success' => true,
-            'message' => 'Payment confirm successfully.',
-        ], 404);
+        $validated = $request->validated();
+
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized user',
+            ], 401);
+        }
+
+        try
+        {
+            $payment = DB::transaction(function () use ($validated, $user, $request, $reg) {
+
+                $order = Order::where('reg', $reg)->lockForUpdate()->first();
+
+                if (! $order) {
+                    throw ValidationException::withMessages([
+                        'order' => ['Order not found.'],
+                    ]);
+                }
+
+                if ($order->payment_status === Order::PAYMENT_PAID) {
+                    throw ValidationException::withMessages([
+                        'order' => ['This order has already been paid.'],
+                    ]);
+                }
+
+                if ($validated['amount'] <= 0) {
+                    throw ValidationException::withMessages([
+                        'amount' => ['Invalid payment amount.'],
+                    ]);
+                }
+
+                // Re-check inside the transaction to close the race window
+                // between the earlier read and this write.
+                if (! empty($validated['transaction_id'])) {
+                    $duplicate = OrderPayment::where('transaction_id', $validated['transaction_id'])
+                        ->lockForUpdate()
+                        ->exists();
+
+                    if ($duplicate) {
+                        throw ValidationException::withMessages([
+                            'transaction_id' => [
+                                'Transaction ID already exists.'
+                            ],
+                        ]);
+                    }
+                }
+
+                $paidAmount = $order->payments()->success()->sum('net_amount');
+                $remaining = $order->payable_amount - $paidAmount;
+
+                if ($validated['amount'] > $remaining) {
+                    throw ValidationException::withMessages([
+                        'amount' => ['Payment exceeds due amount.'],
+                    ]);
+                }
+
+                do {
+                    $receiptNo = 'RCPT-' . Str::upper(Str::random(10));
+                } while (OrderPayment::where('receipt_no', $receiptNo)->exists());
+
+                $provider = match ($validated['payment_method']) {
+                    OrderPayment::METHOD_CASH
+                        => OrderPayment::PROVIDER_CASH,
+                    OrderPayment::METHOD_BANK_TRANSFER
+                        => OrderPayment::PROVIDER_BANK,
+                    OrderPayment::METHOD_MOBILE_BANKING
+                        => OrderPayment::PROVIDER_MANUAL,
+                    OrderPayment::METHOD_CARD
+                        => OrderPayment::PROVIDER_STRIPE,
+                    OrderPayment::METHOD_PAYPAL
+                        => OrderPayment::PROVIDER_PAYPAL,
+                    default
+                        => OrderPayment::PROVIDER_MANUAL,
+                };
+
+                // Order Payment Table
+                $orderPayment = OrderPayment::create([
+                    'order_id'                  => $order->id,
+                    'user_id'                   => $user->id,
+
+                    'payment_method'            => $validated['payment_method'],
+                    'provider'                  => $provider,
+                    'payment_type'              => OrderPayment::TYPE_PAYMENT,
+
+                    // Manual verification required
+                    // 'channel'                   => OrderPayment::getChannel($validated['payment_method']),
+
+                    // Transaction
+                    'transaction_id'            => $validated['transaction_id'] ?? null,
+                    'bank_name'                 => $validated['bank_name'] ?? null,
+                    'account_number'            => $validated['account_number'] ?? null,
+                    'account_holder_name'       => $validated['account_holder_name'] ?? null,
+                    'sender_mobile'             => $validated['sender_mobile'] ?? null,
+                    'sender_name'               => $validated['sender_name'] ?? null,
+
+                    // Amount
+                    'amount'                    => $validated['amount'],
+                    'gateway_fee'               => 0,
+                    'net_amount'                => $validated['amount'],
+                    'currency'                  => OrderPayment::CURRENCY_BDT,
+
+                    // Status
+                    'status'                    => OrderPayment::STATUS_SUCCESS,
+                    'paid_at'                   => now(),
+
+                    // Security
+                    'ip_address'                => $request->ip(),
+                    'user_agent'                => $request->userAgent(),
+                    'receipt_no'                => $receiptNo,
+
+                    'verified_by'               => $user->id,
+                    'verified_at'               => now(),
+                    'remarks'                   => $validated['remarks'] ?? null,
+                ]);
+
+                $newPaidAmount = $paidAmount + $validated['amount'];
+                $newDueAmount = max($order->payable_amount - $newPaidAmount, 0);
+                $paymentStatus = $newDueAmount <= 0
+                    ? Order::PAYMENT_PAID
+                    : Order::PAYMENT_PARTIAL;
+
+                $order->update([
+                    'payment_status' => $paymentStatus,
+                    'paid_amount'    => $newPaidAmount,
+                    'due_amount'     => $newDueAmount,
+                    'paid_at'        => $paymentStatus === Order::PAYMENT_PAID ? now() : null,
+                ]);
+
+                return $orderPayment;
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment recorded successfully.',
+                'data' => [
+                    'payment' => $payment,
+                ],
+            ]);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first(),
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+
+            Log::error('Payment submission failed.', [
+                'order_reg'=>$reg,
+                'user_id'=>$user->id,
+                'amount'=>$validated['amount'] ?? null,
+                'payment_method'=>$validated['payment_method'] ?? null,
+                'transaction_id'=>$validated['transaction_id'] ?? null,
+                'message'=>$e->getMessage(),
+                'file'=>$e->getFile(),
+                'line'=>$e->getLine(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => app()->isProduction()
+                    ? 'Unable to process payment.'
+                    : $e->getMessage(),
+            ], 500);
+        }
     }
 }

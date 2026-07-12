@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             UpazilaSeeder::class,
             PoliceStationSeeder::class,
             ShippingZoneSeeder::class,
+            CustomerAddressSeeder::class,
         ]);
     }
 }

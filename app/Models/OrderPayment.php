@@ -150,6 +150,20 @@ class OrderPayment extends Model
 
     ];
 
+    /** Payment methods settled through a digital/online gateway. */
+    public const ONLINE_METHODS = [
+        self::METHOD_MOBILE_BANKING,
+        self::METHOD_CARD,
+        self::METHOD_PAYPAL,
+        self::METHOD_WALLET,
+    ];
+
+    public const OFFLINE_METHODS = [
+        self::METHOD_COD,
+        self::METHOD_CASH,
+        self::METHOD_BANK_TRANSFER,
+    ];
+
     /*
     |--------------------------------------------------------------------------
     | Relationships
@@ -261,5 +275,12 @@ class OrderPayment extends Model
     public function calculateNetAmount(): float
     {
         return (float) $this->amount - (float) $this->gateway_fee;
+    }
+
+    public static function getChannel(string $method): string
+    {
+        return in_array($method, self::ONLINE_METHODS, true)
+            ? self::CHANNEL_ONLINE
+            : self::CHANNEL_OFFLINE;
     }
 }
