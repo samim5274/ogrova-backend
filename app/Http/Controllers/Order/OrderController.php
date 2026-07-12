@@ -590,7 +590,7 @@ class OrderController extends Controller
 
     public function getOrderDetails($reg){
         try{
-            $order = Order::with(['user', 'payment'])
+            $order = Order::with(['user', 'payment', 'division', 'district', 'upazila', 'policeStation'])
                 ->where('reg', $reg)
                 ->first();
 
