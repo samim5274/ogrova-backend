@@ -605,9 +605,7 @@ class OrderController extends Controller
 
             $orderPayment = null;
 
-            if ($order->payment_method === Order::PAYMENT_METHOD_ONLINE) {
-                $orderPayment = OrderPayment::with('verifier:id,name,email')->where('order_id', $order->id)->first();
-            }
+            $orderPayment = OrderPayment::with('verifier:id,name,email')->where('order_id', $order->id)->first();
 
             return response()->json([
                 'success' => true,
