@@ -204,6 +204,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 // E-commerce Routes
 // ======================
 use App\Http\Controllers\Ecommerce\EcommerceProductController;
+use App\Http\Controllers\Ecommerce\SearchController;
 Route::prefix('public')->group(function () {
 
     Route::get('/products', [EcommerceProductController::class, 'index']);
@@ -218,6 +219,14 @@ Route::prefix('public')->group(function () {
     Route::get('/get-brands', [ProductController::class, 'getBrand']);
     Route::get('/product/{slug}', [ProductController::class, 'show'])->where('slug', '[a-zA-Z0-9\-]+');
     Route::get('/category-products/{id}', [EcommerceProductController::class, 'getCategoryProducts']);
+});
+
+// =============================
+// E-commerce Search
+// =============================
+Route::prefix('search')->group(function () {
+    Route::get('/suggestions', [SearchController::class, 'suggestions']);
+    Route::get('/', [SearchController::class, 'search']);
 });
 
 use App\Http\Controllers\Ecommerce\CartController;
