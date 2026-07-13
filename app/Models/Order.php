@@ -117,6 +117,8 @@ class Order extends Model
         'shipped_at',
         'delivered_at',
         'cancelled_at',
+        'ip_address',
+        'user_agent',
     ];
 
     protected $casts = [

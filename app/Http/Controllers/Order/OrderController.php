@@ -440,6 +440,9 @@ class OrderController extends Controller
 
                     'shipping_address'          => $address->address,
                     'remarks'                   => $validated['remarks'] ?? null,
+
+                    'ip_address'                => $request->ip(),
+                    'user_agent'                => $request->userAgent(),
                 ]);
 
                 if ($request->boolean('save_info')) {

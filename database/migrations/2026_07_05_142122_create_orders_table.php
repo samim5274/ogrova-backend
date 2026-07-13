@@ -164,6 +164,10 @@ return new class extends Migration
 
             $table->timestamp('cancelled_at')->nullable();
 
+            $table->ipAddress('ip_address')->nullable();
+
+            $table->text('user_agent')->nullable();
+
             $table->softDeletes();
 
             $table->timestamps();
