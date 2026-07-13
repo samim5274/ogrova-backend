@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\JsonResponse;
 
@@ -19,6 +20,7 @@ use App\Models\User;
 use App\Models\Order;
 use App\Models\PointTransaction;
 use App\Services\PointService;
+use App\Mail\OrderMail;
 use App\Models\Cart;
 use App\Models\DeliveryChargePayment;
 use App\Models\Division;
@@ -534,6 +536,9 @@ class OrderController extends Controller
 
                     $coupon->increment('used_count');
                 }
+
+                // mailtrap: cf7f17c9f64fdf9c521cd2b5d08e1323
+                Mail::to($user->email)->send(new OrderMail($order));
 
                 return response()->json([
                     'success' => true,
