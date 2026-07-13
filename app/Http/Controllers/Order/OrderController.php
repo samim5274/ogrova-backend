@@ -579,19 +579,73 @@ class OrderController extends Controller
 
     }
 
-    public function statusFilter(){
+    // public function statusFilter(){
+    //     try{
+    //         $orders = Order::with('user')->latest()->paginate(20);
+
+    //         return response()->json([
+    //             'success' => true,
+    //             'message' => 'Orders fetched successfully.',
+    //             'data' => $orders,
+    //         ], 200);
+    //     } catch (\Throwable $e) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Failed to fetch orders. Please try again later.',
+    //         ], 500);
+    //     }
+    // }
+
+    public function statusFilter(Request $request)
+    {
         try{
-            $orders = Order::with('user')->latest()->get();
+            $query = Order::query()->with('user');
+
+            if ($request->filled('status')) {
+                $query->where('status', $request->status);
+            }
+
+            if ($request->filled('search')) {
+
+                $search = trim($request->search);
+
+                $query->where(function ($q) use ($search) {
+
+                    $q->where('reg', 'like', "%{$search}%")
+                    ->orWhere('status', 'like', "%{$search}%");
+
+                    // transaction_id column
+                    if (\Schema::hasColumn('orders', 'transaction_id')) {
+                        $q->orWhere('transaction_id', 'like', "%{$search}%");
+                    }
+
+                    $q->orWhereHas('user', function ($user) use ($search) {
+
+                        $user->where('name', 'like', "%{$search}%");
+
+                        // user_id column
+                        if (\Schema::hasColumn('users', 'user_id')) {
+                            $user->orWhere('user_id', 'like', "%{$search}%");
+                        }
+
+                    });
+
+                });
+            }
+
+            $orders = $query->latest()->paginate(20);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Orders fetched successfully.',
                 'data' => $orders,
-            ], 200);
+            ]);
+
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch orders. Please try again later.',
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
             ], 500);
         }
     }
