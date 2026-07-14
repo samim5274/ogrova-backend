@@ -260,7 +260,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
 
-
 // =============================
 // E-commerce Admin order Routes
 // =============================

@@ -92,6 +92,8 @@ class User extends Authenticatable
 
     public function transection() { return $this->hasMany(Transaction::class); }
 
+    public function productRatings(){ return $this->hasMany(ProductRating::class); }
+
     // --- Accessors (Calculated Fields) ---
 
     /**

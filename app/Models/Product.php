@@ -36,6 +36,10 @@ class Product extends Model
         'meta_keywords',
         'sv',
         'point',
+        'average_rating',
+        'total_rating',
+        'total_review',
+        'total_click',
     ];
 
     protected $casts = [
@@ -125,7 +129,12 @@ class Product extends Model
         return $this->hasMany(ProductVariant::class, 'product_id');
     }
 
+    public function ratings()
+    {
+        return $this->hasMany(ProductRating::class);
+    }
 
+    // Scope
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
