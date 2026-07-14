@@ -65,7 +65,19 @@ class SearchController extends Controller
 
     public function search(Request $request)
     {
-        $q = trim($request->q);
+        $q = trim($request->get('q', ''));
+
+        if ($q === '') {
+            return response()->json([
+                'data' => [],
+                'current_page' => 1,
+                'last_page' => 1,
+                'total' => 0,
+                'per_page' => 50,
+                'from' => 0,
+                'to' => 0,
+            ]);
+        }
 
         $products = Product::query()
             ->where('is_active', true)
@@ -75,7 +87,8 @@ class SearchController extends Controller
                     ->orWhere('summary', 'like', "%{$q}%")
                     ->orWhere('description', 'like', "%{$q}%");
             })
-            ->paginate(20);
+            ->paginate(50)
+            ->appends($request->query());
 
         return response()->json($products);
     }

@@ -225,8 +225,8 @@ Route::prefix('public')->group(function () {
 // E-commerce Search
 // =============================
 Route::prefix('search')->group(function () {
-    Route::get('/suggestions', [SearchController::class, 'suggestions']);
     Route::get('/', [SearchController::class, 'search']);
+    Route::get('/suggestions', [SearchController::class, 'suggestions']);
 });
 
 use App\Http\Controllers\Ecommerce\CartController;
