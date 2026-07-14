@@ -17,9 +17,9 @@ return new class extends Migration
             $table->string('reg')->index();
 
             // Foreign Keys
-            $table->foreignId('product_id')->constrained('products')->onDelete('cascade');
+            $table->foreignId('product_id')->constrained('products')->onDelete('restrict');
             $table->foreignId('variant_id')->nullable()->constrained('product_variants')->onDelete('set null');
-            $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('cascade');
+            $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('restrict');
 
             // Product Details (Snapshot)
             $table->integer('quantity')->default(1);
