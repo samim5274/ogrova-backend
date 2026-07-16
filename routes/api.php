@@ -254,10 +254,11 @@ Route::middleware('auth:sanctum')->group(function () {
 // Product Ratting
 // =============================
 use App\Http\Controllers\Ecommerce\RatingController;
+Route::get('/ratings', [RatingController::class, 'index']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('ratings')->group(function () {
-        Route::get('/', [AccountController::class, 'index']);
-        Route::post('/create', [AccountController::class, 'store']);
+        // Route::get('/', [RatingController::class, 'index']);
+        Route::post('/create', [RatingController::class, 'store']);
     });
 });
 
