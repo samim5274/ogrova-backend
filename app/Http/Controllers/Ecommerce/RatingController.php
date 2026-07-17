@@ -87,6 +87,74 @@ class RatingController extends Controller
         }
     }
 
+    public function productRating(Request $request, $product_id)
+    {
+        $request->validate([
+            'product_id' => ['nullable', 'integer', 'exists:products,id'],
+            'per_page'   => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        try {
+
+            $perPage = $validated['per_page'] ?? 10;
+
+            $query = ProductRating::query()
+                ->select([
+                    'id',
+                    'product_id',
+                    'user_id',
+                    'rating',
+                    'title',
+                    'review',
+                    'created_at',
+                ])
+                ->with([
+                    'user:id,name',
+                    'images:id,product_rating_id,image',
+                ])
+                ->where('is_approved', true);
+
+            $query->where('product_id', $product_id);
+
+            $ratings = $query
+                ->latest('created_at')
+                ->paginate($perPage)
+                ->withQueryString();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Ratings retrieved successfully.',
+                'data'    => $ratings,
+                'meta'    => [
+                    'current_page' => $ratings->currentPage(),
+                    'last_page'    => $ratings->lastPage(),
+                    'per_page'     => $ratings->perPage(),
+                    'from'         => $ratings->firstItem(),
+                    'to'           => $ratings->lastItem(),
+                    'total'        => $ratings->total(),
+                    'has_more'     => $ratings->hasMorePages(),
+                ]
+            ], 200);
+
+        } catch (\Throwable $e) {
+
+            Log::error('Product Rating Fetch Error', [
+                'message' => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
+                'request' => $request->all(),
+                'user_id' => auth()->id(),
+                'trace'   => config('app.debug') ? $e->getTraceAsString() : null,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve ratings.',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
     public function store(Request $request)
     {
         if (!Auth::check()) {

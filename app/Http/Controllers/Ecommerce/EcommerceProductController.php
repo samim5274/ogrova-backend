@@ -35,6 +35,8 @@ class EcommerceProductController extends Controller
                     'brand:id,name',
                     'images:id,product_id,image_path,is_primary'
                 ])
+                ->withAvg('ratings', 'rating')
+                ->withCount('ratings')
                 ->where('is_active', 1)
                 ->where('approval_status', 1)
                 ->latest()
@@ -77,7 +79,7 @@ class EcommerceProductController extends Controller
             $district = District::where('division_id', $request->division_id)
                 ->orderBy('name')
                 ->get();
-                
+
             return response()->json([
                 'success' => true,
                 'data' => $district,

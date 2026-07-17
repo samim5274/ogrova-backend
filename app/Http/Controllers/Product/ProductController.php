@@ -562,6 +562,8 @@ class ProductController extends Controller
                 'variants:id,product_id,color,size,price,stock_quantity,discount_price',
                 'images:id,product_id,image_path,is_primary'
             ])
+            ->withAvg('ratings', 'rating')
+            ->withCount('ratings')
             ->where('slug', $slug)->firstOrFail();
 
             $categoryProducts = Product::with([
