@@ -19,26 +19,53 @@ class RatingController extends Controller
 {
     public function index(Request $request)
     {
+        $request->validate([
+            'product_id' => ['nullable', 'integer', 'exists:products,id'],
+            'per_page'   => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+
         try {
 
-            $query = ProductRating::with(['product', 'user', 'images'])
-                ->where('is_approved', true)
-                ->latest();
+            $perPage = $validated['per_page'] ?? 10;
 
-            if ($request->filled('product_id')) {
-                $query->where('product_id', $request->product_id);
+            $query = ProductRating::query()
+                ->select([
+                    'id',
+                    'product_id',
+                    'user_id',
+                    'rating',
+                    'title',
+                    'review',
+                    'created_at',
+                ])
+                ->with([
+                    'user:id,name',
+                    'images:id,product_rating_id,image',
+                ])
+                ->where('is_approved', true);
+
+            if (!empty($validated['product_id'])) {
+                $query->where('product_id', $validated['product_id']);
             }
 
-            // $perPage = max(1, min((int) $request->input('per_page', 10), 50));
-
-            // $ratings = $query->paginate($perPage);
-
-            $ratings = $query->get();
+            $ratings = $query
+                ->latest('created_at')
+                ->paginate($perPage)
+                ->withQueryString();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Ratings retrieved successfully.',
                 'data'    => $ratings,
+                'meta'    => [
+                    'current_page' => $ratings->currentPage(),
+                    'last_page'    => $ratings->lastPage(),
+                    'per_page'     => $ratings->perPage(),
+                    'from'         => $ratings->firstItem(),
+                    'to'           => $ratings->lastItem(),
+                    'total'        => $ratings->total(),
+                    'has_more'     => $ratings->hasMorePages(),
+                ]
             ], 200);
 
         } catch (\Throwable $e) {
@@ -47,6 +74,9 @@ class RatingController extends Controller
                 'message' => $e->getMessage(),
                 'file'    => $e->getFile(),
                 'line'    => $e->getLine(),
+                'request' => $request->all(),
+                'user_id' => auth()->id(),
+                'trace'   => config('app.debug') ? $e->getTraceAsString() : null,
             ]);
 
             return response()->json([
