@@ -258,7 +258,7 @@ Route::get('/ratings', [RatingController::class, 'index']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('ratings')->group(function () {
         // Route::get('/', [RatingController::class, 'index']);
-        Route::post('/create', [RatingController::class, 'store']);
+        Route::post('/', [RatingController::class, 'store']);
     });
 });
 

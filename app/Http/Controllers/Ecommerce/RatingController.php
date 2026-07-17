@@ -5,18 +5,15 @@ namespace App\Http\Controllers\Ecommerce;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
+use Illuminate\Database\QueryException;
 
-use App\Models\User;
 use App\Models\ProductRating;
 use App\Models\ProductRatingImage;
-use App\Models\Product;
+use App\Models\Cart;
+use App\Models\Order;
 
 class RatingController extends Controller
 {
@@ -32,6 +29,10 @@ class RatingController extends Controller
                 $query->where('product_id', $request->product_id);
             }
 
+            // $perPage = max(1, min((int) $request->input('per_page', 10), 50));
+
+            // $ratings = $query->paginate($perPage);
+
             $ratings = $query->get();
 
             return response()->json([
@@ -42,7 +43,7 @@ class RatingController extends Controller
 
         } catch (\Throwable $e) {
 
-            \Log::error('Product Rating Fetch Error', [
+            Log::error('Product Rating Fetch Error', [
                 'message' => $e->getMessage(),
                 'file'    => $e->getFile(),
                 'line'    => $e->getLine(),
@@ -65,86 +66,127 @@ class RatingController extends Controller
             ], 401);
         }
 
-        $validator = Validator::make($request->all(), [
+        $validated = Validator::make($request->all(), [
             'product_id' => ['required', 'exists:products,id'],
             'rating'     => ['required', 'integer', 'between:1,5'],
             'title'      => ['nullable', 'string', 'max:255'],
             'review'     => ['nullable', 'string', 'max:5000'],
             'images'     => ['nullable', 'array', 'max:4'],
             'images.*'   => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed.',
-                'errors'  => $validator->errors(),
-            ], 422);
-        }
-
-        $validated = $validator->validated();
-
-        DB::beginTransaction();
+        ])->validate();
 
         try {
 
-            $alreadyReviewed = ProductRating::where('product_id', $validated['product_id'])
+            $cartItem = Cart::query()
+                ->select('reg')
                 ->where('user_id', Auth::id())
-                ->lockForUpdate()
+                ->where('product_id', $validated['product_id'])
+                ->first();
+
+            if (!$cartItem) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You have not purchased this product.',
+                ], 403);
+            }
+
+            $isDelivered = Order::query()
+                ->where('reg', $cartItem->reg)
+                ->where('status', Order::STATUS_DELIVERED)
                 ->exists();
 
-            if ($alreadyReviewed) {
-                DB::rollBack();
+            if (!$isDelivered) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This product has not been delivered yet.',
+                ], 403);
+            }
 
+            return DB::transaction(function () use ($validated, $request) {
+
+               $alreadyReviewed = ProductRating::query()
+                    ->where('user_id', Auth::id())
+                    ->where('product_id', $validated['product_id'])
+                    ->lockForUpdate()
+                    ->exists();
+
+                if ($alreadyReviewed) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You have already submitted a review for this product.',
+                    ], 422);
+                }
+
+                $rating = ProductRating::create([
+                    'product_id'        => $validated['product_id'],
+                    'user_id'           => Auth::id(),
+                    'rating'            => $validated['rating'],
+                    'title'             => $validated['title'] ?? null,
+                    'review'            => $validated['review'] ?? null,
+                    'verified_purchase' => true,
+                    'is_approved'       => true, // make it from admin
+                    'is_featured'       => false,
+                    'helpful_count'     => 0,
+                    'unhelpful_count'   => 0,
+                ]);
+
+                if ($request->hasFile('images')) {
+                    $this->storeRatingImages(
+                        $request->file('images'),
+                        $rating
+                    );
+                }
+
+                $rating->load([
+                    'user:id,name,photo',
+                    'images',
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Review submitted successfully.',
+                    'data' => $rating,
+                ],201);
+
+            });
+
+        } catch (QueryException $e) {
+            Log::error('Product review database error.', [
+                'user_id' => Auth::id(),
+                'product_id' => $validated['product_id'] ?? null,
+                'exception' => $e,
+            ]);
+
+            if (($e->errorInfo[0] ?? null) === '23000') {
                 return response()->json([
                     'success' => false,
                     'message' => 'You have already submitted a review for this product.',
                 ], 422);
             }
 
-            $rating = ProductRating::create([
-                'product_id'        => $validated['product_id'],
-                'user_id'           => Auth::id(),
-                'rating'            => $validated['rating'],
-                'title'             => $validated['title'] ?? null,
-                'review'            => $validated['review'] ?? null,
-                'verified_purchase' => true,
-                'is_approved'       => true,
-                'is_featured'       => false,
-                'helpful_count'     => 0,
-                'unhelpful_count'   => 0,
-            ]);
-
-            if ($request->hasFile('images')) {
-                $this->storeRatingImages(
-                    $request->file('images'),
-                    $rating
-                );
+            if (($e->errorInfo[1] ?? null) === 1062) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You have already submitted a review for this product.',
+                ], 422);
             }
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Your review has been submitted successfully.',
-                'data'    => $rating->load(['images', 'user']),
-            ], 201);
-
-        } catch (\Throwable $e) {
-
-            DB::rollBack();
-
-            Log::error('Product rating creation failed.', [
-                'user_id'    => Auth::id(),
-                'product_id' => $validated['product_id'] ?? null,
-                'message'    => $e->getMessage(),
-                'file'       => $e->getFile(),
-                'line'       => $e->getLine(),
-            ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to submit your review at this moment. Please try again later.',
+            ], 500);
+        } catch (\Throwable $e) {
+            Log::error('Product review creation failed.', [
+                'user_id' => Auth::id(),
+                'product_id' => $validated['product_id'] ?? null,
+                'exception' => $e,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => config('app.debug')
+                    ? $e->getMessage()
+                    : 'Unable to submit your review at this moment. Please try again later.',
             ], 500);
         }
     }
