@@ -27,7 +27,7 @@ return new class extends Migration
 
             $table->decimal('purchase_price', 12, 2);
             $table->decimal('price', 12, 2);
-            $table->decimal('discount_price', 12, 2)->nullable();
+            $table->decimal('discount', 12, 2)->nullable();
             $table->integer('stock_quantity')->default(0);
             $table->integer('min_stock')->default(5);
 

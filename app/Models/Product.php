@@ -23,7 +23,7 @@ class Product extends Model
         'description',
         'purchase_price',
         'price',
-        'discount_price',
+        'discount',
         'stock_quantity',
         'min_stock',
         'is_active',
@@ -43,8 +43,9 @@ class Product extends Model
     ];
 
     protected $casts = [
+        'purchase_price' => 'decimal:2',
         'price' => 'decimal:2',
-        'discount_price' => 'decimal:2',
+        'discount' => 'decimal:2',
         'stock_quantity' => 'integer',
         'min_stock' => 'integer',
         'is_active' => 'boolean',

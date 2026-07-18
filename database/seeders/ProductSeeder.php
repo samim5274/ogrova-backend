@@ -56,7 +56,7 @@ class ProductSeeder extends Seeder
                 'brand_id'         => $brand->id,
                 'purchase_price'   => $purchase_price,
                 'price'            => $price,
-                'discount_price'   => $discountPrice,
+                'discount'         => $discountPrice,
                 'stock_quantity'   => rand(5, 50),
                 'min_stock'        => 5,
                 'summary'          => "This is a summary of {$name}",
@@ -79,7 +79,7 @@ class ProductSeeder extends Seeder
                     'color'             => ['Red','Blue','Green','Black','White'][rand(0,4)],
                     'size'              => ['S','M','L','XL'][rand(0,3)],
                     'price'             => $product->price,
-                    'discount_price'    => $product->discount_price,
+                    'discount'          => $product->discount,
                     'stock_quantity'    => rand(5,20),
                 ]);
             }

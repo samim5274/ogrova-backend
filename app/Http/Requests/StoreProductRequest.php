@@ -15,47 +15,48 @@ class StoreProductRequest extends FormRequest
     {
         return [
             // Basic Info
-            'name' => ['required', 'string', 'max:255'],
-            'sku' => ['nullable', 'string', 'max:100', 'unique:products,sku'],
+            'name'                      => ['required', 'string', 'max:255'],
+            'sku'                       => ['nullable', 'string', 'max:100', 'unique:products,sku'],
 
             // Relations
-            'brand' => ['required', 'integer', 'exists:brands,id'],
-            'category' => ['required', 'integer', 'exists:product_categories,id'],
-            'subcategory' => ['required', 'integer', 'exists:product_sub_categories,id'],
+            'brand'                     => ['required', 'integer', 'exists:brands,id'],
+            'category'                  => ['required', 'integer', 'exists:product_categories,id'],
+            'subcategory'               => ['required', 'integer', 'exists:product_sub_categories,id'],
 
             // Pricing & Stock
-            'price' => ['required', 'numeric', 'min:0'],
-            'discount_price' => ['nullable', 'numeric', 'min:0'],
-            'stock_quantity' => ['required', 'integer', 'min:0'],
-            'min_stock' => ['nullable', 'integer', 'min:0'],
+            'purchase_price'            => ['required', 'numeric', 'min:0'],
+            'price'                     => ['required', 'numeric', 'min:0'],
+            'discount_price'            => ['nullable', 'numeric', 'min:0'],
+            'stock_quantity'            => ['required', 'integer', 'min:0'],
+            'min_stock'                 => ['nullable', 'integer', 'min:0'],
 
             // Content
-            'summary' => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string', 'max:1000'],
-            'slug' => ['nullable', 'string', 'max:255', 'unique:products,slug'],
+            'summary'                   => ['nullable', 'string', 'max:255'],
+            'description'               => ['nullable', 'string', 'max:1000'],
+            'slug'                      => ['nullable', 'string', 'max:255', 'unique:products,slug'],
 
             // SEO
-            'title' => ['nullable', 'string', 'max:70'],
-            'keywords' => ['nullable', 'string', 'max:200'],
-            'meta_description' => ['nullable', 'string', 'max:1000'],
+            'title'                     => ['nullable', 'string', 'max:70'],
+            'keywords'                  => ['nullable', 'string', 'max:200'],
+            'meta_description'          => ['nullable', 'string', 'max:1000'],
 
             // Status
-            'is_featured' => ['nullable', 'boolean'],
-            'is_on_sale' => ['nullable', 'boolean'],
-            'is_active' => ['nullable', 'boolean'],
-            'point' => ['required', 'numeric', 'min:0'],
+            'is_featured'               => ['nullable', 'boolean'],
+            'is_on_sale'                => ['nullable', 'boolean'],
+            'is_active'                 => ['nullable', 'boolean'],
+            'point'                     => ['required', 'numeric', 'min:0'],
 
             // Images
-            'images' => ['nullable', 'array'],
-            'images.*' => ['file', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
+            'images'                    => ['nullable', 'array'],
+            'images.*'                  => ['file', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
 
             // Variants (Color + Size)
-            'variants' => ['nullable', 'array'],
-            'variants.*.color' => ['required_with:variants', 'string', 'max:50'],
-            'variants.*.size' => ['required_with:variants', 'string', 'max:50'],
-            'variants.*.price' => ['required_with:variants', 'numeric', 'min:0'],
+            'variants'                  => ['nullable', 'array'],
+            'variants.*.color'          => ['required_with:variants', 'string', 'max:50'],
+            'variants.*.size'           => ['required_with:variants', 'string', 'max:50'],
+            'variants.*.price'          => ['required_with:variants', 'numeric', 'min:0'],
             'variants.*.discount_price' => ['required_with:variants', 'numeric', 'min:0'],
-            'variants.*.stock' => ['required_with:variants', 'integer', 'min:0'],
+            'variants.*.stock'          => ['required_with:variants', 'integer', 'min:0'],
         ];
     }
 
