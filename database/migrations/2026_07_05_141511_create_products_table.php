@@ -47,10 +47,6 @@ return new class extends Migration
             $table->integer('sv')->default(0);
             $table->integer('point')->default(0);
 
-            $table->decimal('average_rating', 3, 2)->default(0);
-            $table->unsignedInteger('total_rating')->default(0);
-            $table->unsignedInteger('total_review')->default(0);
-
             $table->unsignedInteger('total_click')->default(0);
 
             $table->timestamps();

@@ -26,7 +26,7 @@ class StoreProductRequest extends FormRequest
             // Pricing & Stock
             'purchase_price'            => ['required', 'numeric', 'min:0'],
             'price'                     => ['required', 'numeric', 'min:0'],
-            'discount_price'            => ['nullable', 'numeric', 'min:0'],
+            'discount'                  => ['nullable', 'numeric', 'min:0'],
             'stock_quantity'            => ['required', 'integer', 'min:0'],
             'min_stock'                 => ['nullable', 'integer', 'min:0'],
 
@@ -55,7 +55,7 @@ class StoreProductRequest extends FormRequest
             'variants.*.color'          => ['required_with:variants', 'string', 'max:50'],
             'variants.*.size'           => ['required_with:variants', 'string', 'max:50'],
             'variants.*.price'          => ['required_with:variants', 'numeric', 'min:0'],
-            'variants.*.discount_price' => ['required_with:variants', 'numeric', 'min:0'],
+            'variants.*.discount'       => ['required_with:variants', 'numeric', 'min:0'],
             'variants.*.stock'          => ['required_with:variants', 'integer', 'min:0'],
         ];
     }
@@ -84,7 +84,7 @@ class StoreProductRequest extends FormRequest
             'variants.*.color.required_with' => 'Variant color is required.',
             'variants.*.size.required_with' => 'Variant size is required.',
             'variants.*.price.required_with' => 'Variant price is required.',
-            'variants.*.discount_price.required_with' => 'Variant discount price is required.',
+            'variants.*.discount.required_with' => 'Variant discount price is required.',
             'variants.*.stock.required_with' => 'Variant stock is required.',
         ];
     }

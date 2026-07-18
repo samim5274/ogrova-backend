@@ -688,7 +688,7 @@ class CustomerController extends Controller
         // ======================
         if ($variant) {
             $basePrice = $variant->price ?? $product->price;
-            $variantDiscount = $variant->discount_price ?? 0;
+            $variantDiscount = $variant->discount ?? 0;
 
             $finalPrice = $variantDiscount > 0
                 ? $basePrice - $variantDiscount
@@ -1010,7 +1010,7 @@ class CustomerController extends Controller
                 |--------------------------------------------------------------------------
                 */
                 $basePrice = $variant->price ?? $product->price;
-                $discount  = $variant->discount_price ?? 0;
+                $discount  = $variant->discount ?? 0;
 
                 $finalPrice = max($basePrice - $discount, 0);
 

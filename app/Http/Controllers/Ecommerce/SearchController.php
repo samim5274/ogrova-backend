@@ -31,7 +31,7 @@ class SearchController extends Controller
                 'name',
                 'slug',
                 'price',
-                'discount_price'
+                'discount'
             )
             ->where('is_active', true)
             ->where(function ($query) use ($q) {

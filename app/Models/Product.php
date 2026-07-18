@@ -36,9 +36,6 @@ class Product extends Model
         'meta_keywords',
         'sv',
         'point',
-        'average_rating',
-        'total_rating',
-        'total_review',
         'total_click',
     ];
 

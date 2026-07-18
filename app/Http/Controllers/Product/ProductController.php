@@ -584,6 +584,8 @@ class ProductController extends Controller
                 return $image;
             });
 
+            $product->increment('total_click');
+
             return response()->json([
                 'success' => true,
                 'message' => 'Product fetched successfully.',

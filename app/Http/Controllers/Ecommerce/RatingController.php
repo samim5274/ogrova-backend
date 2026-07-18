@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\QueryException;
 
+use App\Models\Product;
 use App\Models\ProductRating;
 use App\Models\ProductRatingImage;
 use App\Models\Cart;
@@ -87,7 +88,7 @@ class RatingController extends Controller
         }
     }
 
-    public function productRating(Request $request, $product_id)
+    public function getProductRating(Request $request, $product_id)
     {
         $request->validate([
             'product_id' => ['nullable', 'integer', 'exists:products,id'],

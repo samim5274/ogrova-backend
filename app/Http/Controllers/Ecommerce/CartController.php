@@ -94,7 +94,7 @@ class CartController extends Controller
                 // ======================
                 // if ($variant) {
                 //     $basePrice = $variant->price ?? $product->price;
-                //     $variantDiscount = $variant->discount_price ?? $product->discount_price ?? 0;
+                //     $variantDiscount = $variant->discount ?? $product->discount ?? 0;
                 //     $finalPrice = $variantDiscount > 0
                 //         ? $basePrice - $variantDiscount
                 //         : $basePrice;
@@ -109,10 +109,10 @@ class CartController extends Controller
 
                 if ($variant) {
                     $basePrice = (float) $variant->price;
-                    $discountAmount = (float) ($variant->discount_price ?? 0);
+                    $discountAmount = (float) ($variant->discount ?? 0);
                 } else {
                     $basePrice = (float) $product->price;
-                    $discountAmount = (float) ($product->discount_price ?? 0);
+                    $discountAmount = (float) ($product->discount ?? 0);
                 }
                 $finalPrice = max(0, $basePrice - $discountAmount);
 

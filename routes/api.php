@@ -255,7 +255,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // =============================
 use App\Http\Controllers\Ecommerce\RatingController;
 
-Route::get('/product/ratings/{product_id}', [RatingController::class, 'productRating']);
+Route::get('/product/ratings/{product_id}', [RatingController::class, 'getProductRating']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('ratings')->group(function () {

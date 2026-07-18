@@ -245,7 +245,7 @@ class AuthController extends Controller
         // ======================
         if ($variant) {
             $basePrice = $variant->price ?? $product->price;
-            $variantDiscount = $variant->discount_price ?? 0;
+            $variantDiscount = $variant->discount ?? 0;
 
             $finalPrice = $variantDiscount > 0
                 ? $basePrice - $variantDiscount
