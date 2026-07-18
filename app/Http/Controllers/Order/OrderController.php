@@ -538,7 +538,7 @@ class OrderController extends Controller
                 }
 
                 // mailtrap: cf7f17c9f64fdf9c521cd2b5d08e1323
-                Mail::to($user->email)->send(new OrderMail($order));
+                // Mail::to($user->email)->send(new OrderMail($order));
 
                 return response()->json([
                     'success' => true,

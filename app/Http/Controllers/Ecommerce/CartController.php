@@ -201,7 +201,11 @@ class CartController extends Controller
 
         $cartItem = Cart::where('reg', $reg)
             ->where('product_id', $product_id)
-            ->where('variant_id', $variant_id)
+            ->when(
+                !empty($variant_id) && $variant_id !== 'null',
+                fn ($query) => $query->where('variant_id', $variant_id),
+                fn ($query) => $query->whereNull('variant_id')
+            )
             ->first();
 
         if (!$cartItem) {
@@ -211,8 +215,9 @@ class CartController extends Controller
             ], 404);
         }
 
-        $cartItem->quantity = $request->quantity;
-        $cartItem->save();
+        $cartItem->update([
+            'quantity' => $request->quantity,
+        ]);
 
         return response()->json([
             'success' => true,
@@ -244,7 +249,11 @@ class CartController extends Controller
                 ->where('user_id', $user->id)
                 ->where('reg', $reg)
                 ->where('product_id', $product_id)
-                ->where('variant_id', $variant_id)
+                ->when(
+                    !empty($variant_id) && $variant_id !== 'null',
+                    fn ($query) => $query->where('variant_id', $variant_id),
+                    fn ($query) => $query->whereNull('variant_id'),
+                )
                 ->first();
 
             if (!$cartItem) {
