@@ -563,8 +563,15 @@ class ProductController extends Controller
             ])
             ->withAvg('ratings', 'rating')
             ->withCount('ratings')
+            ->where('is_active', 1)
+            ->where('approval_status', 1)
             ->where('slug', $slug)->firstOrFail();
 
+            // Related Products
+            $limit = 15;
+            $excludedIds = [$product->id];
+
+            // 1. Same Subcategory (Random)
             $categoryProducts = Product::with([
                 'category:id,name',
                 'subcategory:id,name',
@@ -572,16 +579,80 @@ class ProductController extends Controller
                 'variants:id,product_id,color,size,price,stock_quantity,discount',
                 'images:id,product_id,image_path,is_primary'
             ])
-            ->where('id', '!=', $product->id)
-            ->where('category_id', $product->category_id)
-            ->latest()
-            ->take(5)
+            ->withAvg('ratings', 'rating')
+            ->withCount('ratings')
+            ->whereNotIn('id', $excludedIds)
+            ->where('is_active', 1)
+            ->where('approval_status', 1)
+            ->where('subcategory_id', $product->subcategory_id)
+            ->inRandomOrder()
+            ->take($limit)
             ->get();
+
+            $excludedIds = array_merge($excludedIds, $categoryProducts->pluck('id')->toArray());
+
+            // 2. Same Category (Random)
+            if ($categoryProducts->count() < $limit) {
+
+                $remaining = $limit - $categoryProducts->count();
+
+                $extraProducts = Product::with([
+                        'category:id,name',
+                        'subcategory:id,name',
+                        'brand:id,name',
+                        'variants:id,product_id,color,size,price,stock_quantity,discount',
+                        'images:id,product_id,image_path,is_primary'
+                    ])
+                    ->withAvg('ratings', 'rating')
+                    ->withCount('ratings')
+                    ->where('is_active', 1)
+                    ->where('approval_status', 1)
+                    ->whereNotIn('id', $excludedIds)
+                    ->where('category_id', $product->category_id)
+                    ->inRandomOrder()
+                    ->take($remaining)
+                    ->get();
+
+                $categoryProducts = $categoryProducts->concat($extraProducts);
+
+                $excludedIds = array_merge($excludedIds, $extraProducts->pluck('id')->toArray());
+            }
+
+            // 3. Other Category (Fill Remaining)
+            if ($categoryProducts->count() < $limit) {
+
+                $remaining = $limit - $categoryProducts->count();
+
+                $otherProducts = Product::with([
+                        'category:id,name',
+                        'subcategory:id,name',
+                        'brand:id,name',
+                        'variants:id,product_id,color,size,price,stock_quantity,discount',
+                        'images:id,product_id,image_path,is_primary'
+                    ])
+                    ->withAvg('ratings', 'rating')
+                    ->withCount('ratings')
+                    ->where('is_active', 1)
+                    ->where('approval_status', 1)
+                    ->whereNotIn('id', $excludedIds)
+                    ->orderByDesc('total_click')
+                    ->take($remaining)
+                    ->get();
+
+                $categoryProducts = $categoryProducts->concat($otherProducts);
+            }
 
             // Transform images (VERY IMPORTANT for live server)
             $product->images->transform(function ($image) {
                 $image->url = asset('storage/' . $image->image_path);
                 return $image;
+            });
+
+            $categoryProducts->each(function ($relatedProduct) {
+                $relatedProduct->images->transform(function ($image) {
+                    $image->url = asset('storage/' . $image->image_path);
+                    return $image;
+                });
             });
 
             $product->increment('total_click');

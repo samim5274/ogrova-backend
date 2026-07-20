@@ -39,7 +39,7 @@ class EcommerceProductController extends Controller
                 ->withCount('ratings')
                 ->where('is_active', 1)
                 ->where('approval_status', 1)
-                ->latest()
+                ->inRandomOrder()
                 ->get()
                 ->groupBy('category_id')
                 ->map(function ($items) {

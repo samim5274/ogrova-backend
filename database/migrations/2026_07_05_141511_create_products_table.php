@@ -47,7 +47,7 @@ return new class extends Migration
             $table->integer('sv')->default(0);
             $table->integer('point')->default(0);
 
-            $table->unsignedInteger('total_click')->default(0);
+            $table->unsignedBigInteger('total_click')->default(0);
 
             $table->timestamps();
 
