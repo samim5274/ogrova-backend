@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Brand extends Model
 {
@@ -12,8 +13,14 @@ class Brand extends Model
     protected $fillable = [
         'name',
         'slug',
+
         'description',
         'image',
+
+        'meta_title',
+        'meta_description',
+        'meta_keywords',
+
         'sort_order',
         'is_active',
     ];
@@ -28,11 +35,58 @@ class Brand extends Model
         parent::boot();
 
         static::creating(function ($brand) {
-            if (empty($brand->slug)) {
-                $brand->slug = Str::slug($brand->name);
+
+            if (!$brand->slug) {
+
+                $brand->slug = self::generateUniqueSlug($brand->name);
+
+            }
+        });
+
+        static::updating(function ($brand) {
+
+            if ($brand->isDirty('name')) {
+
+                $brand->slug = self::generateUniqueSlug(
+                    $brand->name,
+                    $brand->id
+                );
+
             }
         });
     }
+
+    public static function generateUniqueSlug($name, $ignoreId = null)
+    {
+
+        $slug = Str::slug($name);
+
+        $original = $slug;
+
+        $counter = 1;
+
+
+        while(
+            self::where('slug',$slug)
+            ->when($ignoreId,function($query) use ($ignoreId){
+
+                return $query->where('id','!=',$ignoreId);
+
+            })
+            ->exists()
+        ){
+
+            $slug = $original.'-'.$counter;
+
+            $counter++;
+
+        }
+
+
+        return $slug;
+
+    }
+
 
     // Relationships
 

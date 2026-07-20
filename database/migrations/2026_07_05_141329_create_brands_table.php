@@ -19,12 +19,18 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->string('image')->nullable();
 
+            // SEO Fields
+            $table->string('meta_title')->nullable();
+            $table->text('meta_description')->nullable();
+            $table->string('meta_keywords')->nullable();
+
             $table->integer('sort_order')->default(0);
             $table->boolean('is_active')->default(true);
 
             $table->timestamps();
 
-            $table->index(['name', 'is_active']);
+            $table->index(['slug', 'is_active']);
+            $table->index(['name']);
         });
     }
 

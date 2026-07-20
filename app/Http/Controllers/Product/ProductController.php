@@ -97,15 +97,53 @@ class ProductController extends Controller
 
     public function storeBrand(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255|unique:brands,name'
+        $validated = $request->validate([
+            'name'              => 'required|string|max:255|unique:brands,name',
+            'description'       => 'nullable|string|max:5000',
+            'image'             => 'nullable|image|mimes:webp,jpg,jpeg,png|max:2048',
+
+            'meta_title'        => 'nullable|string|max:255',
+            'meta_description'  => 'nullable|string|max:500',
+            'meta_keywords'     => 'nullable|string|max:255',
         ]);
 
         try {
 
+            $imagePath = null;
+            if($request->hasFile('image')){
+                $imagePath = $request
+                    ->file('image')
+                    ->store('brands','public');
+            }
+
             $brand = Brand::create([
                 'name' => trim($request->name),
-                'slug' => Str::slug($request->name),
+                'slug'=>Brand::generateUniqueSlug(
+                    $validated['name']
+                ),
+                'description'=> $validated['description'] ?? null,
+                'image'=>$imagePath,
+
+                // SEO
+                'meta_title'=>
+                    $validated['meta_title']
+                    ??
+                    $validated['name'].' | Official Brand',
+
+                'meta_description'=>
+                    $validated['meta_description']
+                    ??
+                    Str::limit(
+                        $validated['description'] ??
+                        'Buy products from '.$validated['name'],
+                        160
+                    ),
+
+                'meta_keywords'=>
+                    $validated['meta_keywords']
+                    ??
+                    strtolower($validated['name']),
+
                 'is_active' => true,
             ]);
 
