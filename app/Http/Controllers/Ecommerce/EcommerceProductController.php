@@ -242,6 +242,22 @@ class EcommerceProductController extends Controller
     public function getCategoryProducts($id) {
         try {
 
+            $category = ProductCategory::select(
+                'id',
+                'name',
+                'slug',
+                'image',
+                'meta_title',
+                'meta_description',
+                'meta_keywords',
+                'og_title',
+                'og_description',
+                'og_image',
+                'canonical_url',
+                'robots',
+                'indexable'
+            )->findOrFail($id);
+
             $products = Product::with([
                 'category:id,name',
                 'subcategory:id,name',
@@ -251,16 +267,19 @@ class EcommerceProductController extends Controller
             ])
             ->withAvg('ratings', 'rating')
             ->withCount('ratings')
-            ->where('is_active', 1)
-            ->where('approval_status', 1)
-            ->where('category_id', $id)
+            ->where([
+                'category_id' => $id,
+                'is_active' => 1,
+                'approval_status' => 1,
+            ])
             ->inRandomOrder()
             ->paginate(20);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Category products fetched successfully.',
-                'data' => $products
+                'category' => $category,
+                'products' => $products,
             ], 200);
 
         } catch (\Throwable $e) {

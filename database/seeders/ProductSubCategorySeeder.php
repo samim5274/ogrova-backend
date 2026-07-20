@@ -16,121 +16,187 @@ class ProductSubCategorySeeder extends Seeder
     public function run(): void
     {
         $data = [
-            'Medicines' => [
-                'Tablet',
-                'Capsule',
-                'Syrup',
-                'Injection',
-                'Ointment',
-                'Others'
+
+            'Electronics' => [
+                'Television',
+                'Audio',
+                'Camera',
+                'Accessories',
             ],
 
-            'Medical Devices' => [
-                'Thermometer',
-                'Blood Pressure Monitor',
-                'Glucometer',
-                'Pulse Oximeter'
+            'Mobile Phones' => [
+                'Smartphones',
+                'Feature Phones',
+                'Phone Cases',
+                'Chargers',
+                'Power Banks',
+                'Screen Protectors',
             ],
 
-            'Health Care Equipment' => [
-                'Nebulizer',
-                'Oxygen Cylinder',
-                'Wheelchair',
-                'Hospital Bed'
+            'Computers & Laptops' => [
+                'Laptops',
+                'Desktop Computers',
+                'Monitors',
+                'Printers',
+                'Computer Accessories',
             ],
 
-            'Personal Care' => [
+            'Home Appliances' => [
+                'Refrigerators',
+                'Air Conditioners',
+                'Washing Machines',
+                'Microwave Ovens',
+                'Vacuum Cleaners',
+            ],
+
+            'Fashion' => [
+                'Clothing',
+                'Shoes',
+                'Bags',
+                'Accessories',
+            ],
+
+            "Men's Fashion" => [
+                'T-Shirts',
+                'Shirts',
+                'Pants',
+                'Shoes',
+                'Watches',
+            ],
+
+            "Women's Fashion" => [
+                'Dresses',
+                'Sarees',
+                'Salwar Kameez',
+                'Handbags',
+                'Jewellery',
+            ],
+
+            'Beauty & Personal Care' => [
                 'Skin Care',
                 'Hair Care',
-                'Oral Care',
-                'Hygiene Products'
+                'Makeup',
+                'Perfume',
+                'Personal Hygiene',
             ],
 
-            'Baby Care' => [
-                'Baby Lotion',
+            'Health & Wellness' => [
+                'Medicines',
+                'Vitamins',
+                'Supplements',
+                'Medical Devices',
+                'First Aid',
+            ],
+
+            'Groceries' => [
+                'Rice',
+                'Cooking Oil',
+                'Beverages',
+                'Snacks',
+                'Spices',
+            ],
+
+            'Baby & Kids' => [
+                'Baby Food',
                 'Diapers',
-                'Baby Shampoo',
-                'Feeding Bottle'
+                'Baby Care',
+                'Toys',
+                'Kids Clothing',
             ],
 
-            'Diabetic Care' => [
-                'Glucose Monitor',
-                'Test Strips',
-                'Diabetic Food'
+            'Home & Living' => [
+                'Home Decor',
+                'Lighting',
+                'Storage',
+                'Cleaning Supplies',
             ],
 
-            'Heart & Blood Pressure' => [
-                'BP Machine',
-                'Heart Monitor',
-                'Cholesterol Test'
+            'Kitchen & Dining' => [
+                'Cookware',
+                'Dinner Sets',
+                'Kitchen Tools',
+                'Water Bottles',
             ],
 
-            'Vitamins & Supplements' => [
-                'Vitamin C',
-                'Vitamin D',
-                'Calcium',
-                'Protein Powder'
+            'Furniture' => [
+                'Sofas',
+                'Beds',
+                'Dining Tables',
+                'Office Furniture',
             ],
 
-            'Sexual Wellness' => [
-                'Condom',
-                'Lubricants',
-                'Pregnancy Test Kit'
+            'Sports & Outdoors' => [
+                'Fitness Equipment',
+                'Sports Wear',
+                'Camping',
+                'Cycling',
             ],
 
-            'First Aid' => [
-                'Bandage',
-                'Antiseptic',
-                'Cotton',
-                'Pain Relief Spray'
+            'Automotive' => [
+                'Car Accessories',
+                'Motorbike Accessories',
+                'Engine Oil',
+                'Tyres',
             ],
 
-            'Lab Test & Diagnostics' => [
-                'Blood Test Kit',
-                'Urine Test Kit',
-                'Covid Test Kit'
+            'Books & Stationery' => [
+                'Books',
+                'Notebooks',
+                'Pens',
+                'Office Supplies',
             ],
 
-            'Elderly Care' => [
-                'Walking Stick',
-                'Adult Diapers',
-                'Support Belt'
+            'Toys & Games' => [
+                'Educational Toys',
+                'Board Games',
+                'Remote Control Toys',
+                'Puzzles',
             ],
 
-            'Orthopedic Care' => [
-                'Knee Support',
-                'Back Support',
-                'Neck Collar'
+            'Pet Supplies' => [
+                'Pet Food',
+                'Pet Toys',
+                'Pet Grooming',
+                'Pet Accessories',
             ],
 
-            'Covid & Safety' => [
-                'Face Mask',
-                'Hand Sanitizer',
-                'Gloves'
-            ],
-
-            'Herbal & Ayurvedic' => [
-                'Herbal Medicine',
-                'Natural Oil',
-                'Supplements'
+            'Jewellery & Watches' => [
+                'Necklaces',
+                'Rings',
+                'Bracelets',
+                'Watches',
             ],
         ];
 
-        foreach ($data as $categoryName => $subcategories) {
-            $category = ProductCategory::where('name', $categoryName)->first();
+        foreach ($data as $categoryName => $subCategories) {
 
-            if (!$category) continue;
+            $category = ProductCategory::where(
+                'slug',
+                Str::slug($categoryName)
+            )->first();
 
-            foreach ($subcategories as $key => $sub) {
-                ProductSubCategory::create([
-                    'category_id' => $category->id,
-                    'name' => $sub,
-                    'slug' => Str::slug($sub) . '-' . uniqid(),
-                    'description' => $sub . ' under ' . $categoryName,
-                    'image' => null,
-                    'sort_order' => $key + 1,
-                    'is_active' => true,
-                ]);
+            if (!$category) {
+                $this->command->warn("Category not found: {$categoryName}");
+                continue;
+            }
+
+            foreach ($subCategories as $index => $subCategory) {
+
+                $slug = Str::slug($categoryName . '-' . $subCategory);
+
+                ProductSubCategory::updateOrCreate(
+                    [
+                        'category_id' => $category->id,
+                        'slug' => $slug,
+                    ],
+                    [
+                        'name' => $subCategory,
+                        'description' => "{$subCategory} under {$categoryName}",
+                        'image' => null,
+                        'sort_order' => $index + 1,
+                        'is_active' => true,
+                    ]
+                );
             }
         }
     }

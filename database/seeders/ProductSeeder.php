@@ -27,7 +27,7 @@ class ProductSeeder extends Seeder
         $brands = Brand::all();
 
         if(!$categories->count() || !$subcategories->count() || !$brands->count()){
-            $this->command->error('Make sure categories, subcategories, brands and vendors exist.');
+            $this->command->warn('Make sure categories, subcategories, brands and vendors exist.');
             return;
         }
 

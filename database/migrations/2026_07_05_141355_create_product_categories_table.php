@@ -31,6 +31,8 @@ return new class extends Migration
 
             // Canonical URL
             $table->string('canonical_url')->nullable();
+            
+            $table->string('robots')->default('index,follow');
 
             // Search Engine
             $table->boolean('indexable')->default(true);
