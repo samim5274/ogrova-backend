@@ -15,6 +15,22 @@ class ProductSubCategory extends Model
         'slug',
         'description',
         'image',
+
+        // SEO
+        'meta_title',
+        'meta_description',
+        'meta_keywords',
+
+        // Open Graph
+        'og_title',
+        'og_description',
+        'og_image',
+
+        // SEO Control
+        'canonical_url',
+        'robots',
+        'indexable',
+
         'sort_order',
         'is_active',
     ];
@@ -22,17 +38,35 @@ class ProductSubCategory extends Model
     protected $casts = [
         'sort_order' => 'integer',
         'is_active' => 'boolean',
+        'indexable' => 'boolean',
     ];
 
     protected static function boot()
     {
         parent::boot();
 
+
         static::creating(function ($subCategory) {
+
             if (empty($subCategory->slug)) {
+
                 $subCategory->slug = Str::slug($subCategory->name);
+
             }
+
         });
+
+
+        static::updating(function ($subCategory) {
+
+            if ($subCategory->isDirty('name') && empty($subCategory->slug)) {
+
+                $subCategory->slug = Str::slug($subCategory->name);
+
+            }
+
+        });
+
     }
 
     // Relationships

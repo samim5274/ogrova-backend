@@ -348,20 +348,70 @@ class ProductController extends Controller
 
         try {
 
-            $slug = Str::slug($request->name);
+            $name = trim($request->name);
 
-            $exists = ProductSubCategory::where('slug', $slug)->exists();
+            // Generate Slug
+            $slug = Str::slug($name);
 
-            if ($exists) {
+            if (ProductSubCategory::where('slug', $slug)->exists()) {
                 $slug .= '-' . time();
             }
 
+
+            // SEO Auto Generate (Ogrova)
+            $metaTitle = $name . ' - Buy Online in Bangladesh | Ogrova';
+
+
+            $metaDescription =
+                "Shop {$name} at Ogrova Bangladesh. Find quality products at the best price with fast delivery and trusted online shopping experience.";
+
+
+            $metaKeywords =
+                strtolower($name) .
+                ', buy ' .
+                strtolower($name) .
+                ', online shopping Bangladesh, Ogrova';
+
+
+            // Open Graph
+            $ogTitle = $name . ' | Ogrova';
+
+
+            $ogDescription =
+                "Explore {$name} products on Ogrova. Shop smart with affordable prices, authentic products and reliable delivery across Bangladesh.";
+
+
+            // Canonical URL
+            $canonicalUrl = url('/subcategory/' . $slug);
+
+
             $sub = ProductSubCategory::create([
-                'name' => trim($request->name),
+
+                'name' => $name,
                 'slug' => $slug,
                 'category_id' => $request->category_id,
                 'is_active' => $request->is_active ?? true,
+
+
+                // SEO
+                'meta_title' => $metaTitle,
+                'meta_description' => $metaDescription,
+                'meta_keywords' => $metaKeywords,
+
+
+                // Open Graph
+                'og_title' => $ogTitle,
+                'og_description' => $ogDescription,
+                'og_image' => null,
+
+
+                // SEO Control
+                'canonical_url' => $canonicalUrl,
+                'robots' => 'index,follow',
+                'indexable' => true,
+
             ]);
+
 
             return response()->json([
                 'success' => true,
@@ -369,9 +419,13 @@ class ProductController extends Controller
                 'data' => $sub
             ], 201);
 
+
         } catch (\Exception $e) {
 
-            Log::error('SubCategory Store Error', ['error' => $e->getMessage()]);
+            Log::error('SubCategory Store Error', [
+                'error' => $e->getMessage()
+            ]);
+
 
             return response()->json([
                 'success' => false,
