@@ -476,6 +476,46 @@ class ProductController extends Controller
 
         try {
             return DB::transaction(function () use ($request, $data) {
+
+                // SEO Auto Generate
+                // Meta title, description and keyword auto generate
+
+                $brand           = Brand::find($data['brand']);
+                $category        = ProductCategory::find($data['category']);
+                $subcategory     = ProductSubCategory::find($data['subcategory']);
+
+                $brandName       = $brand?->name;
+                $categoryName    = $category?->name;
+                $subcategoryName = $subcategory?->name;
+
+                $productName     = trim($data['name']);
+
+                $metaTitle = !empty($data['title']) ? $data['title'] :
+                                Str::limit( "{$productName} | {$brandName} | Buy Online in Bangladesh | Ogrova", 60, '' );
+
+                $metaDescription = !empty($data['meta_description']) ? $data['meta_description'] :
+                                        Str::limit( "Buy {$productName} by {$brandName} at the best price in Bangladesh from Ogrova. 100% genuine {$categoryName}, fast delivery, cash on delivery, secure online payment and nationwide shipping.",
+                                        160, '' );
+
+                $metaKeywords = !empty($data['keywords'])
+                    ? $data['keywords']
+                    : implode(', ', array_unique(array_filter([
+                        $productName,
+                        "{$productName} Bangladesh",
+                        "Buy {$productName}",
+                        $brandName,
+                        "{$brandName} Bangladesh",
+                        $categoryName,
+                        $subcategoryName,
+                        "Best Price Bangladesh",
+                        "Online Shopping Bangladesh",
+                        "Original Product",
+                        "Cash On Delivery",
+                        "Fast Delivery",
+                        "Ogrova",
+                    ])));
+
+
                 $product = Product::create([
                     'name'             => $data['name'],
                     'sku'              => $data['sku'],
@@ -489,10 +529,13 @@ class ProductController extends Controller
                     'min_stock'        => $data['min_stock'] ?? 0,
                     'summary'          => $data['summary'] ?? null,
                     'description'      => $data['description'] ?? null,
-                    'slug'             => $data['slug'],
-                    'meta_title'       => $data['title'] ?? null,
-                    'meta_keywords'    => $data['keywords'] ?? null,
-                    'meta_description' => $data['meta_description'] ?? null,
+
+                    'slug'             => $data['slug'] ?? null,
+
+                    'meta_title'       => $metaTitle,
+                    'meta_keywords'    => $metaKeywords,
+                    'meta_description' => $metaDescription,
+
                     'is_featured'      => $data['is_featured'] ?? false,
                     'is_on_sale'       => $data['is_on_sale'] ?? false,
                     'is_active'        => $data['is_active'] ?? true,

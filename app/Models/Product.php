@@ -55,44 +55,83 @@ class Product extends Model
     const STATUS_APPROVED = 2;
     const STATUS_REJECTED = 3;
 
-    protected static function boot()
+    protected static function booted()
     {
-        parent::boot();
+        static::creating(function ($product) {
 
-        static::saving(function ($product) {
+            /*
+            |--------------------------------------------------------------------------
+            | Generate Slug
+            |--------------------------------------------------------------------------
+            */
 
-            /** =========================
-            *  SLUG GENERATE
-            * ========================= */
-            if (empty($product->slug) || $product->isDirty('name')) {
+            if (blank($product->slug)) {
+
                 $baseSlug = Str::slug($product->name);
-                $newSlug = $baseSlug . '-' . Str::lower(Str::random(4));
-                $exists = static::where('category_id', $product->category_id)
-                    ->where('slug', $newSlug)
-                    ->where('id', '!=', $product->id)
-                    ->exists();
 
-                if ($exists) {
-                    $newSlug = $baseSlug . '-' . Str::lower(Str::random(6));
+                $slug = $baseSlug;
+
+                $count = 2;
+
+                while (
+                    static::where('slug', $slug)->exists()
+                ) {
+                    $slug = $baseSlug.'-'.$count;
+                    $count++;
                 }
-                $product->slug = $newSlug;
+
+                $product->slug = $slug;
             }
 
-            /** =========================
-            *  SKU GENERATE
-            * ========================= */
-            if (empty($product->sku)) {
-                $prefix = 'PRD';
-                $sku = $prefix . '-' . strtoupper(Str::random(6));
+            /*
+            |--------------------------------------------------------------------------
+            | Generate SKU
+            |--------------------------------------------------------------------------
+            */
+
+            if (blank($product->sku)) {
+
+                do {
+
+                    $sku = 'PRD-'.strtoupper(Str::random(8));
+
+                } while (
+                    static::where('sku', $sku)->exists()
+                );
+
+                $product->sku = $sku;
+            }
+
+        });
+
+        static::updating(function ($product) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | Update slug only when name changed
+            |--------------------------------------------------------------------------
+            */
+
+            if ($product->isDirty('name')) {
+
+                $baseSlug = Str::slug($product->name);
+
+                $slug = $baseSlug;
+
+                $count = 2;
+
                 while (
-                    static::where('sku', $sku)
+                    static::where('slug', $slug)
                         ->where('id', '!=', $product->id)
                         ->exists()
                 ) {
-                    $sku = $prefix . '-' . strtoupper(Str::random(8));
+                    $slug = $baseSlug.'-'.$count;
+                    $count++;
                 }
-                $product->sku = $sku;
+
+                $product->slug = $slug;
             }
+
         });
     }
 
