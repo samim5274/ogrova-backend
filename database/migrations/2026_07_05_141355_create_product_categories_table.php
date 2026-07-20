@@ -19,12 +19,31 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->string('image')->nullable();
 
+            // SEO
+            $table->string('meta_title', 255)->nullable();
+            $table->text('meta_description')->nullable();
+            $table->string('meta_keywords')->nullable();
+
+            // Open Graph
+            $table->string('og_title')->nullable();
+            $table->text('og_description')->nullable();
+            $table->string('og_image')->nullable();
+
+            // Canonical URL
+            $table->string('canonical_url')->nullable();
+
+            // Search Engine
+            $table->boolean('indexable')->default(true);
+
             $table->integer('sort_order')->default(0);
             $table->boolean('is_active')->default(true);
 
             $table->timestamps();
 
-            $table->index(['name', 'is_active']);
+            $table->index('slug');
+            $table->index('name');
+            $table->index('is_active');
+            $table->index('indexable');
         });
     }
 

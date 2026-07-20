@@ -212,17 +212,58 @@ class ProductController extends Controller
 
     public function storeCategory(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255|unique:product_categories,name',
-            'is_active' => 'boolean'
+            'description' => 'nullable|string',
+            'image' => 'nullable|string',
+            'is_active' => 'nullable|boolean',
+            'sort_order' => 'nullable|integer|min:0',
         ]);
 
         try {
 
+            $name = trim($validated['name']);
+            $slug = Str::slug($name);
+
             $category = ProductCategory::create([
-                'name' => trim($request->name),
-                'slug' => Str::slug($request->name),
-                'is_active' => $request->is_active ?? true,
+                // Basic
+                'name' => $name,
+                'slug' => $slug,
+                'description' => $validated['description'] ?? null,
+                'image' => $validated['image'] ?? null,
+
+                // SEO
+                'meta_title' => Str::limit($name, 60, ''),
+                'meta_description' => Str::limit(
+                    strip_tags($validated['description'] ?? "{$name} products at the best price."),
+                    160,
+                    ''
+                ),
+                'meta_keywords' => strtolower($name),
+
+                'og_title' => $name,
+                'og_description' => Str::limit(
+                    strip_tags($validated['description'] ?? "{$name} products at the best price."),
+                    200,
+                    ''
+                ),
+                'og_image' => $validated['image'] ?? null,
+
+                // Canonical
+                'canonical_url' => url("/category/{$slug}"),
+
+                // Robots
+                'robots' => 'index,follow',
+                'indexable' => true,
+
+                // Status
+                'sort_order' => $validated['sort_order'] ?? 0,
+                'is_active' => $validated['is_active'] ?? true,
+            ]);
+
+            // Getting after ID Canonical URL Update
+            $category->update([
+                'canonical_url' => url("/category/{$category->slug}/{$category->id}")
             ]);
 
             return response()->json([
