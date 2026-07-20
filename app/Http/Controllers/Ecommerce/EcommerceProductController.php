@@ -29,7 +29,12 @@ class EcommerceProductController extends Controller
 {
     public function index(){
         try{
-            $products = Product::with([
+            $categories = ProductCategory::where('is_active', 1)
+                ->select('id', 'name', 'slug')
+                ->get();
+
+            $data = $categories->map(function ($category) {
+                $products = Product::with([
                     'category:id,name,slug',
                     'subcategory:id,name',
                     'brand:id,name',
@@ -37,20 +42,55 @@ class EcommerceProductController extends Controller
                 ])
                 ->withAvg('ratings', 'rating')
                 ->withCount('ratings')
+                ->where('category_id', $category->id)
                 ->where('is_active', 1)
                 ->where('approval_status', 1)
                 ->inRandomOrder()
-                ->get()
-                ->groupBy('category_id')
-                ->map(function ($items) {
-                    return $items->take(10);
+                ->take(10)
+                ->get();
+
+                // Image URL
+                $products->each(function ($product) {
+                    $product->images->transform(function ($image) {
+                        $image->url = asset('storage/' . $image->image_path);
+                        return $image;
+                    });
                 });
+
+                return [
+                    'category' => $category,
+                    'products' => $products,
+                ];
+            });
+
+            // $products = Product::with([
+            //         'category:id,name,slug',
+            //         'subcategory:id,name',
+            //         'brand:id,name',
+            //         'images:id,product_id,image_path,is_primary'
+            //     ])
+            //     ->withAvg('ratings', 'rating')
+            //     ->withCount('ratings')
+            //     ->where('is_active', 1)
+            //     ->where('approval_status', 1)
+            //     ->inRandomOrder()
+            //     ->get()
+            //     ->groupBy('category_id')
+            //     ->map(function ($items) {
+            //         return $items->take(10);
+            //     });
+
+            // return response()->json([
+            //     'success' => true,
+            //     'message' => 'Products fetched successfully.',
+            //     'data' => $products
+            // ], 200);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Products fetched successfully.',
-                'data' => $products
-            ], 200);
+                'data' => $data,
+            ]);
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
@@ -209,10 +249,12 @@ class EcommerceProductController extends Controller
                 'variants',
                 'images'
             ])
+            ->withAvg('ratings', 'rating')
+            ->withCount('ratings')
             ->where('is_active', 1)
             ->where('approval_status', 1)
             ->where('category_id', $id)
-            ->latest()
+            ->inRandomOrder()
             ->paginate(20);
 
             return response()->json([
