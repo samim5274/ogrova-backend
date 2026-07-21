@@ -758,10 +758,10 @@ class OrderController extends Controller
                 $updateData[$column] = now()->toDateString();
             }
 
-            if ($statusKey === 'delivered') {
-                $updateData['paid_at'] = now()->toDateString();
-                $updateData['payment_status'] = "Paid";
-            }
+            // if ($statusKey === 'delivered') {
+            //     $updateData['paid_at'] = now()->toDateString();
+            //     $updateData['payment_status'] = "Paid";
+            // }
 
             $order->update($updateData);
 
