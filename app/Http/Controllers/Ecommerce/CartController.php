@@ -320,4 +320,130 @@ class CartController extends Controller
             ], 500);
         }
     }
+
+    // ================================================================
+    // Admin add to cart
+    // ================================================================
+    public function adminAddToCart(Request $request)
+    {
+        $data = $request->validate([
+            'product_id' => ['required', 'exists:products,id'],
+        ]);
+
+        $user = auth()->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 401);
+        }
+
+        $reg = RegGenerator::generateOrderReg($user->id);
+        if (!$reg) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate cart session.'.$user->id
+            ], 500);
+        }
+
+        try{
+            return DB::transaction(function () use ($data, $user, $reg) {
+
+                $product = Product::lockForUpdate()->findOrFail($data['product_id']);
+
+                // ======================
+                // Variant handling
+                // ======================
+                $variant = null;
+
+                if (!empty($data['variant_id'])) {
+                    $variant = ProductVariant::lockForUpdate()
+                        ->where('product_id', $product->id)
+                        ->findOrFail($data['variant_id']);
+                }
+
+                // ======================
+                // Stock source
+                // ======================
+                $source = $variant ?: $product;
+
+                if ($variant) {
+                    $basePrice = (float) $variant->price;
+                    $discountAmount = (float) ($variant->discount ?? 0);
+                } else {
+                    $basePrice = (float) $product->price;
+                    $discountAmount = (float) ($product->discount ?? 0);
+                }
+                $finalPrice = max(0, $basePrice - $discountAmount);
+
+                // ======================
+                // Cart item find
+                // ======================
+                $query = Cart::where('reg', $reg)
+                    ->where('product_id', $product->id);
+
+                if ($variant) {
+                    $query->where('variant_id', $variant->id);
+                } else {
+                    $query->whereNull('variant_id');
+                }
+
+                $cartItem = $query->first();
+
+                // ======================
+                // Quantity logic
+                // ======================
+                $requestedQty = 1;
+                $currentQty = $cartItem->quantity ?? 0;
+                $newQty = $currentQty + $requestedQty;
+
+                // ======================
+                // Save cart
+                // ======================
+                if ($cartItem) {
+                    $cartItem->update([
+                        'quantity'          => $newQty,
+                        'price'             => $basePrice,
+                        'discount'          => $discountAmount,
+                        'payable_amount'    => $finalPrice,
+                    ]);
+                } else {
+                    $cartItem = Cart::create([
+                        'reg'               => $reg,
+                        'user_id'           => $user->id,
+                        'product_id'        => $product->id,
+                        'variant_id'        => $variant?->id,
+                        'quantity'          => $requestedQty,
+                        'price'             => $basePrice,
+                        'discount'          => $discountAmount,
+                        'payable_amount'    => $finalPrice,
+                        'point'             => $product->point,
+                    ]);
+                }
+
+                // ======================
+                // RESPONSE (OUTSIDE EXCEPTION FLOW STYLE)
+                // ======================
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Product added to cart successfully.',
+                    'data' => [
+                        'cart_id'    => $cartItem->id,
+                        'product_id' => $product->id,
+                        'variant_id' => $variant?->id,
+                        'quantity'   => $cartItem->quantity,
+                        'price'      => (float) $finalPrice,
+                        'total'      => (float) ($finalPrice * $cartItem->quantity)
+                    ]
+                ], 201);
+
+            });
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], $e->getCode() ?: 500);
+        }
+    }
 }

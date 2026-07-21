@@ -231,6 +231,13 @@ Route::prefix('search')->group(function () {
 
 use App\Http\Controllers\Ecommerce\CartController;
 Route::middleware('auth:sanctum')->group(function () {
+    Route::prefix('admin/cart')->group(function () {
+        Route::get('/', [CartController::class, 'index']);
+        Route::get('/{reg}', [CartController::class, 'getCartItem']);
+        Route::post('/add-to-cart', [CartController::class, 'adminAddToCart']);
+        Route::post('/qty-update/{reg}/{product_id}/{variant_id}', [CartController::class, 'updateQty']);
+        Route::post('/remove-to-cart/{cart_id}/{reg}/{product_id}/{variant_id}', [CartController::class, 'removeToCart']);
+    });
     Route::prefix('cart')->group(function () {
         Route::get('/', [CartController::class, 'index']);
         Route::get('/{reg}', [CartController::class, 'getCartItem']);
