@@ -100,15 +100,6 @@ class RatingController extends Controller
             $perPage = $validated['per_page'] ?? 10;
 
             $query = ProductRating::query()
-                ->select([
-                    'id',
-                    'product_id',
-                    'user_id',
-                    'rating',
-                    'title',
-                    'review',
-                    'created_at',
-                ])
                 ->with([
                     'user:id,name',
                     'images:id,product_rating_id,image',
