@@ -796,18 +796,74 @@ class ProductController extends Controller
         }
     }
 
-    public function edit(Request $request, $id){
+    public function edit(Request $request, $id)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'sku' => 'required|max:100|unique:products,sku,' . $id,
+            'brand' => 'nullable|exists:brands,id',
+            'category' => 'required|exists:product_categories,id',
+            'subcategory' => 'nullable|exists:product_sub_categories,id',
+
+            'price' => 'required|numeric|min:0',
+            'discount' => 'nullable|numeric|min:0',
+            'stock_quantity' => 'required|integer|min:0',
+            'min_stock' => 'nullable|integer|min:0',
+
+            'summary' => 'nullable|string|max:1000',
+            'description' => 'nullable|string',
+
+            'meta_title' => 'nullable|max:255',
+            'meta_keywords' => 'nullable|string',
+            'meta_description' => 'nullable|string|max:2500',
+
+            'slug' => 'required|string|max:255|unique:products,slug,' . $id,
+
+            'point' => 'nullable|integer|min:0',
+
+            'images.*' => 'image|mimes:jpg,jpeg,png,webp|max:2048',
+
+            'variants' => 'array',
+            'variants.*.color' => 'nullable|string|max:50',
+            'variants.*.size' => 'nullable|string|max:50',
+            'variants.*.price' => 'required|numeric|min:0',
+            'variants.*.discount' => 'nullable|numeric|min:0',
+            'variants.*.stock_quantity' => 'required|integer|min:0',
+        ]);
 
         try {
             $product = Product::with('images')->findOrFail($id);
 
             return DB::transaction(function () use ($request, $product) {
 
-                $product->update($request->only([
-                    'name', 'sku', 'price', 'discount', 'stock_quantity',
-                    'min_stock', 'summary', 'description', 'meta_title',
-                    'meta_keywords', 'meta_description', 'point'
-                ]));
+                $product->fill([
+                    'name' => $request->name,
+                    'slug' => $request->slug,
+                    'sku' => $request->sku,
+                    'brand_id' => $request->brand,
+                    'category_id' => $request->category,
+                    'subcategory_id' => $request->subcategory,
+
+                    'price' => $request->price,
+                    'discount' => $request->discount,
+                    'stock_quantity' => $request->stock_quantity,
+                    'min_stock' => $request->min_stock,
+
+                    'summary' => $request->summary,
+                    'description' => $request->description,
+
+                    'meta_title' => $request->meta_title,
+                    'meta_keywords' => $request->meta_keywords,
+                    'meta_description' => $request->meta_description,
+
+                    'point' => $request->point,
+
+                    'is_featured' => $request->boolean('is_featured'),
+                    'is_on_sale' => $request->boolean('is_on_sale'),
+                    'is_active' => $request->boolean('is_active'),
+                ]);
+
+                $product->save();
 
                 if ($request->has('brand')) $product->brand_id = $request->brand;
                 if ($request->has('category')) $product->category_id = $request->category;
@@ -821,22 +877,15 @@ class ProductController extends Controller
 
                     $product->variants()->delete();
 
-                    $variants = [];
-                    foreach ($request->variants as $variant) {
-                        $variants[] = [
-                            'product_id'        => $product->id,
-                            'color'             => $variant['color'] ?? null,
-                            'size'              => $variant['size'] ?? null,
-                            'price'             => $variant['price'] ?? 0,
-                            'discount'          => $variant['discount'] ?? 0,
-                            'stock_quantity'    => $variant['stock_quantity'] ?? 0,
-                            'created_at'        => now(),
-                            'updated_at'        => now(),
-                        ];
-                    }
+                    foreach ($request->variants ?? [] as $variant){
+                        $product->variants()->create([
+                            'color'=>$variant['color'],
+                            'size'=>$variant['size'],
+                            'price'=>$variant['price'],
+                            'discount'=>$variant['discount'],
+                            'stock_quantity'=>$variant['stock_quantity'],
+                        ]);
 
-                    if (!empty($variants)) {
-                        ProductVariant::insert($variants);
                     }
                 }
 
@@ -844,15 +893,17 @@ class ProductController extends Controller
                     $this->updateProductImages($product, $request->file('images'));
                 }
 
-                if ($product->isDirty()) {
-                    $product->save();
-                }
-
                 return response()->json([
-                    'success' => true,
-                    'message' => 'Product updated successfully.',
-                    'data' => $product->load('images')
-                ], 200);
+                    'success'=>true,
+                    'message'=>'Product updated successfully.',
+                    'data'=>$product->fresh([
+                        'images',
+                        'variants',
+                        'brand',
+                        'category',
+                        'subcategory'
+                    ])
+                ]);
             });
         } catch (ModelNotFoundException $e) {
             return response()->json(['success' => false, 'message' => 'Product not found.'], 404);
