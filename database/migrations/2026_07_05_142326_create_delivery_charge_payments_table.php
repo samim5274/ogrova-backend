@@ -18,20 +18,17 @@ return new class extends Migration
             $table->enum('payment_method', [
                 'bank',
                 'mobile',
-                'bkash',
-                'nagad',
-                'rocket',
                 'sslcommerz',
                 'cash'
             ]);
-            $table->decimal('amount', 10, 2)->default('0');
+            $table->decimal('amount', 10, 2)->default(0);
             $table->string('currency')->default('BDT');
             $table->string('bank_name')->nullable();
             $table->string('branch_name')->nullable();
             $table->string('account_number')->nullable();
             $table->string('account_holder_name')->nullable();
             $table->string('mobile_number')->nullable();
-            $table->string('transaction_id')->nullable();
+            $table->string('transaction_id')->nullable()->unique();
             $table->string('reference_no')->nullable();
 
             $table->enum('payment_status', [
@@ -39,7 +36,7 @@ return new class extends Migration
                 'success',
                 'return',
                 'failed'
-            ])->default('success');
+            ])->default('pending');
 
             $table->foreignId('paid_by')
                 ->nullable()

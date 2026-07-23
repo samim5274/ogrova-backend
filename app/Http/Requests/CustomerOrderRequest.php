@@ -17,6 +17,32 @@ class CustomerOrderRequest extends FormRequest
         return auth()->check();
     }
 
+    protected function prepareForValidation(): void
+    {
+        $isAdvance = $this->payment_method === 'advance';
+        $isDeliveryPayment = filter_var($this->is_delivery_charge_payment, FILTER_VALIDATE_BOOLEAN);
+
+        $this->merge([
+            // ---------------------------------------------------------
+            // Product Payment (Advance) fields
+            // ---------------------------------------------------------
+            'trans_payment_method' => $isAdvance ? $this->trans_payment_method : null,
+            'account_number'       => $isAdvance ? $this->account_number : null,
+            'transaction_id'       => $isAdvance && filled($this->transaction_id) ? $this->transaction_id : null,
+            'bank_name'            => $isAdvance ? $this->bank_name : null,
+            'account_holder_name'  => $isAdvance ? $this->account_holder_name : null,
+
+            // ---------------------------------------------------------
+            // Delivery Charge Payment fields
+            // ---------------------------------------------------------
+            'delivery_trans_payment_method' => $isDeliveryPayment ? $this->delivery_trans_payment_method : null,
+            'delivery_account_number'       => $isDeliveryPayment ? $this->delivery_account_number : null,
+            'delivery_transaction_id'       => $isDeliveryPayment && filled($this->delivery_transaction_id) ? $this->delivery_transaction_id : null,
+            'delivery_bank_name'            => $isDeliveryPayment ? $this->delivery_bank_name : null,
+            'delivery_account_holder_name'  => $isDeliveryPayment ? $this->delivery_account_holder_name : null,
+        ]);
+    }
+
     /**
      * Validation Rules
      */
@@ -26,7 +52,25 @@ class CustomerOrderRequest extends FormRequest
         $isBank    = $isAdvance && $this->trans_payment_method === 'bank';
         $isMobile  = $isAdvance && $this->trans_payment_method === 'mobile';
 
+        $isDeliveryPayment = filter_var($this->is_delivery_charge_payment, FILTER_VALIDATE_BOOLEAN);
+        $isDeliveryMobile  = $isDeliveryPayment && $this->delivery_trans_payment_method === 'mobile';
+        $isDeliveryBank    = $isDeliveryPayment && $this->delivery_trans_payment_method === 'bank';
+
         return [
+
+            /*
+            |--------------------------------------------------------------------------
+            | Order Items
+            |--------------------------------------------------------------------------
+            */
+
+            'items' => ['bail', 'required', 'array', 'min:1'],
+            'items.*.product_id' => ['bail', 'required', 'integer', Rule::exists('products', 'id')],
+            'items.*.variant_id' => ['nullable', 'integer', Rule::exists('product_variants', 'id')],
+            'items.*.quantity'   => ['bail', 'required', 'integer', 'min:1'],
+            'items.*.price'      => ['bail', 'required', 'numeric', 'min:0'],
+            'items.*.discount'   => ['nullable', 'numeric', 'min:0'],
+            'items.*.point'      => ['nullable', 'numeric', 'min:0'],
 
             /*
             |--------------------------------------------------------------------------
@@ -34,18 +78,8 @@ class CustomerOrderRequest extends FormRequest
             |--------------------------------------------------------------------------
             */
 
-            'recipient_name' => [
-                'bail',
-                'required',
-                'string',
-                'max:255',
-            ],
-
-            'phone' => [
-                'bail',
-                'required',
-                'regex:/^(?:\+8801|01)[3-9]\d{8}$/',
-            ],
+            'recipient_name' => ['bail', 'required', 'string', 'max:255'],
+            'phone' => ['bail', 'required', 'regex:/^(?:\+8801|01)[3-9]\d{8}$/'],
 
             /*
             |--------------------------------------------------------------------------
@@ -53,50 +87,13 @@ class CustomerOrderRequest extends FormRequest
             |--------------------------------------------------------------------------
             */
 
-            'division_id' => [
-                'bail',
-                'required',
-                Rule::exists('divisions', 'id'),
-            ],
-
-            'district_id' => [
-                'bail',
-                'required',
-                Rule::exists('districts', 'id'),
-            ],
-
-            'upazila_id' => [
-                'bail',
-                'required',
-                Rule::exists('upazilas', 'id'),
-            ],
-
-            'police_station_id' => [
-                'nullable',
-                Rule::exists('police_stations', 'id'),
-            ],
-
-            'postal_code' => [
-                'nullable',
-                'string',
-                'max:20',
-            ],
-
-            'label' => [
-                'nullable',
-                Rule::in([
-                    'Home',
-                    'Office',
-                    'Other',
-                ]),
-            ],
-
-            'address' => [
-                'bail',
-                'required',
-                'string',
-                'max:1000',
-            ],
+            'division_id' => ['bail', 'required', Rule::exists('divisions', 'id')],
+            'district_id' => ['bail', 'required', Rule::exists('districts', 'id')],
+            'upazila_id'  => ['bail', 'required', Rule::exists('upazilas', 'id')],
+            'police_station_id' => ['nullable', Rule::exists('police_stations', 'id')],
+            'postal_code' => ['nullable', 'string', 'max:20'],
+            'label' => ['nullable', Rule::in(['Home', 'Office', 'Other'])],
+            'address' => ['bail', 'required', 'string', 'max:1000'],
 
             /*
             |--------------------------------------------------------------------------
@@ -104,11 +101,7 @@ class CustomerOrderRequest extends FormRequest
             |--------------------------------------------------------------------------
             */
 
-            'remarks' => [
-                'nullable',
-                'string',
-                'max:1000',
-            ],
+            'remarks' => ['nullable', 'string', 'max:1000'],
 
             /*
             |--------------------------------------------------------------------------
@@ -116,22 +109,11 @@ class CustomerOrderRequest extends FormRequest
             |--------------------------------------------------------------------------
             */
 
-            'payment_method' => [
-                'bail',
-                'required',
-                Rule::in([
-                    'cod',
-                    'advance',
-                ]),
-            ],
-
+            'payment_method' => ['bail', 'required', Rule::in(['cod', 'advance'])],
             'trans_payment_method' => [
                 'nullable',
                 Rule::requiredIf($isAdvance),
-                Rule::in([
-                    'mobile',
-                    'bank',
-                ]),
+                Rule::in(['mobile', 'bank']),
             ],
 
             /*
@@ -140,32 +122,76 @@ class CustomerOrderRequest extends FormRequest
             |--------------------------------------------------------------------------
             */
 
-            'bank_name' => [
+            'bank_name' => ['nullable', Rule::requiredIf($isMobile || $isBank), 'string', 'max:255'],
+            'account_number' => [
                 'nullable',
                 Rule::requiredIf($isMobile || $isBank),
+                'string', 'max:100',
+                'regex:/^[A-Za-z0-9\s\-]+$/',
+            ],
+            'transaction_id' => [
+                'nullable',
+                Rule::requiredIf($isMobile),
+                'string', 'max:100',
+                Rule::unique('order_payments', 'transaction_id')
+                    ->where(fn ($q) => $q->whereNotNull('transaction_id')->where('transaction_id', '!=', '')),
+            ],
+            'account_holder_name' => ['nullable', Rule::requiredIf($isBank), 'string', 'max:255'],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Delivery Charge Payment
+            |--------------------------------------------------------------------------
+            */
+
+            'is_delivery_charge_payment' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'delivery_charge_amount' => [
+                'nullable',
+                Rule::requiredIf($isDeliveryPayment),
+                'numeric',
+                'min:0',
+            ],
+
+            'delivery_trans_payment_method' => [
+                'nullable',
+                Rule::requiredIf($isDeliveryPayment),
+                Rule::in([
+                    'mobile',
+                    'bank',
+                ]),
+            ],
+
+            'delivery_bank_name' => [
+                'nullable',
+                Rule::requiredIf($isDeliveryMobile || $isDeliveryBank),
                 'string',
                 'max:255',
             ],
 
-            'account_number' => [
+            'delivery_account_number' => [
                 'nullable',
-                Rule::requiredIf($isMobile || $isBank),
+                Rule::requiredIf($isDeliveryMobile || $isDeliveryBank),
                 'string',
                 'max:100',
                 'regex:/^[A-Za-z0-9\s\-]+$/',
             ],
 
-            'transaction_id' => [
+            'delivery_transaction_id' => [
                 'nullable',
-                Rule::requiredIf($isMobile),
+                Rule::requiredIf($isDeliveryMobile),
                 'string',
                 'max:100',
-                Rule::unique('order_payments', 'transaction_id'),
+                Rule::unique('delivery_charge_payments', 'transaction_id')
+                    ->where(fn ($q) => $q->whereNotNull('transaction_id')->where('transaction_id', '!=', '')),
             ],
 
-            'account_holder_name' => [
+            'delivery_account_holder_name' => [
                 'nullable',
-                Rule::requiredIf($isBank),
+                Rule::requiredIf($isDeliveryBank),
                 'string',
                 'max:255',
             ],
@@ -177,22 +203,15 @@ class CustomerOrderRequest extends FormRequest
             */
 
             'coupon' => [
-                'nullable',
-                'string',
-                'max:100',
+                'nullable', 'string', 'max:100',
                 Rule::exists('coupons', 'code')->where(function ($query) {
-
-                    $query->where('is_active', true);
-
-                    $query->where(function ($q) {
-                        $q->whereNull('start_date')
-                          ->orWhere('start_date', '<=', now());
-                    });
-
-                    $query->where(function ($q) {
-                        $q->whereNull('end_date')
-                          ->orWhere('end_date', '>=', now());
-                    });
+                    $query->where('is_active', true)
+                        ->where(function ($q) {
+                            $q->whereNull('start_date')->orWhere('start_date', '<=', now());
+                        })
+                        ->where(function ($q) {
+                            $q->whereNull('end_date')->orWhere('end_date', '>=', now());
+                        });
                 }),
             ],
         ];
@@ -237,9 +256,36 @@ class CustomerOrderRequest extends FormRequest
 
             'account_holder_name.required' => 'Account holder name is required.',
 
+            // Delivery Charge Payment messages
+            'delivery_charge_amount.required' => 'Delivery charge amount is required.',
+            'delivery_charge_amount.numeric'  => 'Delivery charge amount must be a number.',
+
+            'delivery_trans_payment_method.required' => 'Please select a delivery charge payment method.',
+            'delivery_trans_payment_method.in'       => 'Invalid delivery charge payment method.',
+
+            'delivery_bank_name.required' => 'Bank / Mobile Banking name is required for delivery charge.',
+
+            'delivery_account_number.required' => 'Account number is required for delivery charge.',
+            'delivery_account_number.regex'    => 'Invalid delivery charge account number format.',
+
+            'delivery_transaction_id.required' => 'Transaction ID is required for delivery charge.',
+            'delivery_transaction_id.unique'   => 'This transaction ID already exists.',
+
+            'delivery_account_holder_name.required' => 'Account holder name is required for delivery charge.',
+
             'coupon.exists' => 'Invalid or expired coupon code.',
 
             'remarks.max' => 'Remarks may not exceed 1000 characters.',
+
+            'items.required' => 'Please add at least one product to the cart.',
+            'items.array'    => 'Invalid items format.',
+            'items.min'      => 'Please add at least one product to the cart.',
+
+            'items.*.product_id.required' => 'Each item must have a product.',
+            'items.*.product_id.exists'   => 'One or more selected products are invalid.',
+            'items.*.quantity.required'   => 'Each item must have a quantity.',
+            'items.*.quantity.min'        => 'Quantity must be at least 1.',
+            'items.*.price.required'      => 'Each item must have a price.',
         ];
     }
 
@@ -264,6 +310,14 @@ class CustomerOrderRequest extends FormRequest
             'account_number' => 'account number',
             'transaction_id' => 'transaction ID',
             'account_holder_name' => 'account holder name',
+
+            'is_delivery_charge_payment' => 'delivery charge payment',
+            'delivery_charge_amount' => 'delivery charge amount',
+            'delivery_trans_payment_method' => 'delivery charge payment method',
+            'delivery_bank_name' => 'delivery charge bank name',
+            'delivery_account_number' => 'delivery charge account number',
+            'delivery_transaction_id' => 'delivery charge transaction ID',
+            'delivery_account_holder_name' => 'delivery charge account holder name',
 
             'coupon' => 'coupon code',
         ];

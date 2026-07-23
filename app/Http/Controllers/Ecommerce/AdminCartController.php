@@ -22,6 +22,7 @@ use App\Models\Order;
 use App\Models\ProductVariant;
 use App\Services\RegGenerator;
 use App\Http\Requests\ConfirmOrderRequest;
+use App\Http\Requests\CustomerOrderRequest;
 use App\Http\Requests\ConfirmPaymentRequest;
 use App\Models\PointTransaction;
 use App\Services\PointService;
@@ -315,7 +316,7 @@ class AdminCartController extends Controller
         }
     }
 
-    public function confirmOrder(ConfirmOrderRequest $request, $reg)
+    public function confirmOrder(CustomerOrderRequest $request, $reg)
     {
         $validated = $request->validated();
 
@@ -331,17 +332,22 @@ class AdminCartController extends Controller
 
             $response = DB::transaction(function () use ($validated, $user, $reg, $request) {
 
+                // ----------------------------------------------------------------
+                // STEP 1: Duplicate order guard (same reg + user shouldn't create twice)
+                // ----------------------------------------------------------------
                 if (Order::where([
-                    'reg' => $reg,
-                    'user_id' => $user->id
+                    'reg'     => $reg,
+                    'user_id' => $user->id,
                 ])->lockForUpdate()->exists()) {
 
                     throw ValidationException::withMessages([
-                        'order' => ['Order already created.']
+                        'order' => ['Order already created.'],
                     ]);
                 }
 
-                // ---------------- Cart Section ----------------
+                // ----------------------------------------------------------------
+                // STEP 2: Cart Section — lock cart rows to prevent race condition
+                // ----------------------------------------------------------------
                 $cartItems = Cart::where('reg', $reg)
                     ->where('user_id', $user->id)
                     ->lockForUpdate()
@@ -349,45 +355,53 @@ class AdminCartController extends Controller
 
                 if ($cartItems->isEmpty()) {
                     throw ValidationException::withMessages([
-                        'cart' => ['Cart is empty.']
+                        'cart' => ['Cart is empty.'],
                     ]);
                 }
 
-                // ---------------- Customer Address ----------------
-                $address = CustomerAddress::whereKey($validated['address_id'])
-                    ->where('user_id', $user->id)
-                    ->first();
+                // ----------------------------------------------------------------
+                // STEP 3: Shipping Address — FIX: no CustomerAddress lookup.
+                // ----------------------------------------------------------------
+                $recipientName   = $validated['recipient_name'];
+                $recipientPhone  = $validated['phone'];
+                $divisionId      = $validated['division_id'];
+                $districtId      = $validated['district_id'];
+                $upazilaId       = $validated['upazila_id'];
+                $policeStationId = $validated['police_station_id'] ?? null;
+                $postalCode      = $validated['postal_code'] ?? null;
+                $shippingAddress = $validated['address'];
 
-                if (!$address) {
-                    throw ValidationException::withMessages([
-                        'address_id' => ['Address not found.']
-                    ]);
-                }
-
-                // ---------------- Shipping Charge ----------------
+                // ----------------------------------------------------------------
+                // STEP 4: Shipping Charge
+                // ----------------------------------------------------------------
                 $shippingZone = ShippingZone::query()
-                    ->where('district_id', $address->district_id)
+                    ->where('district_id', $districtId)
                     ->where('is_active', true)
                     ->first();
 
                 if (!$shippingZone) {
                     throw ValidationException::withMessages([
-                        'address_id' => ['Delivery is not available in this area.'],
+                        'district_id' => ['Delivery is not available in this area.'],
                     ]);
                 }
 
                 $deliveryCharge = round($shippingZone->delivery_charge, 2);
-                $codCharge = $validated['payment_method'] === 'cod' ? round($shippingZone->cod_charge, 2) : 0;
+                $codCharge = $validated['payment_method'] === 'cod'
+                    ? round($shippingZone->cod_charge, 2)
+                    : 0;
 
+                // ----------------------------------------------------------------
+                // STEP 5: Cart totals (server-side calculation — client কে trust করা হয় না)
+                // ----------------------------------------------------------------
                 $amount   = round($cartItems->sum(fn ($item) => $item->price * $item->quantity), 2);
                 $point    = (int) $cartItems->sum(fn ($item) => $item->point * $item->quantity);
-                $discount = round($cartItems->sum(fn ($item) => $item->discount * $item->quantity));
+                $discount = round($cartItems->sum(fn ($item) => $item->discount * $item->quantity), 2);
 
                 $netAmount = round(max(0, $amount - $discount), 2);
 
-
-
-                // ---------------- Coupon Section ----------------
+                // ----------------------------------------------------------------
+                // STEP 6: Coupon Section
+                // ----------------------------------------------------------------
                 $coupon = null;
                 $couponDiscount = 0;
 
@@ -400,53 +414,47 @@ class AdminCartController extends Controller
 
                     if (!$coupon) {
                         throw ValidationException::withMessages([
-                            'coupon' => ['Invalid coupon code.']
+                            'coupon' => ['Invalid coupon code.'],
                         ]);
                     }
 
-                    // Date validation
                     if ($coupon->start_date && now()->lt($coupon->start_date)) {
                         throw ValidationException::withMessages([
-                            'coupon' => ['Coupon is not active yet.']
+                            'coupon' => ['Coupon is not active yet.'],
                         ]);
                     }
 
                     if ($coupon->end_date && now()->gt($coupon->end_date)) {
                         throw ValidationException::withMessages([
-                            'coupon' => ['Coupon has expired.']
+                            'coupon' => ['Coupon has expired.'],
                         ]);
                     }
 
-                    // Global usage limit
                     if (
                         !is_null($coupon->usage_limit) &&
                         $coupon->used_count >= $coupon->usage_limit
                     ) {
                         throw ValidationException::withMessages([
-                            'coupon' => ['Coupon usage limit exceeded.']
+                            'coupon' => ['Coupon usage limit exceeded.'],
                         ]);
                     }
 
-                    // Per user usage
                     if (
                         CouponUsage::where('coupon_id', $coupon->id)
                             ->where('user_id', $user->id)
                             ->exists()
                     ) {
                         throw ValidationException::withMessages([
-                            'coupon' => ['You have already used this coupon.']
+                            'coupon' => ['You have already used this coupon.'],
                         ]);
                     }
 
-                    // Minimum order
                     if (!is_null($coupon->minimum_amount) && $netAmount < $coupon->minimum_amount) {
                         throw ValidationException::withMessages([
                             'coupon' => ['Minimum order amount is ' . $coupon->minimum_amount],
                         ]);
                     }
 
-
-                    // Discount
                     if ($coupon->discount_type === 'percent') {
                         $couponDiscount = ($netAmount * $coupon->discount) / 100;
 
@@ -463,167 +471,168 @@ class AdminCartController extends Controller
                 $totalDiscount = round($discount + $couponDiscount, 2);
                 $payableAmount = round(max(0, ($amount - $totalDiscount) + $deliveryCharge + $codCharge), 2);
 
-                // ---------------- Create Order ----------------
+                // ----------------------------------------------------------------
+                // STEP 7: Create Order
+                // ----------------------------------------------------------------
                 $order = Order::create([
-                    'reg'                       => $reg,
-                    'date'                      => now()->toDateString(),
-                    'user_id'                   => $user->id,
+                    'reg'   => $reg,
+                    'slug'  => Str::slug($reg . '-' . now()->format('YmdHis')), // unique slug generate
+                    'date'  => now()->toDateString(),
+                    'user_id' => $user->id,
 
-                    'coupon_id'                 => $coupon?->id,
-                    'coupon_code'               => $coupon?->code,
+                    'coupon_id'       => $coupon?->id,
+                    'coupon_code'     => $coupon?->code,
 
-                    'amount'                    => $amount,
-                    'coupon_discount'           => $couponDiscount,
-                    'shipping_charge'           => $deliveryCharge,
-                    // 'cod_charge'             => $codCharge,
-                    'discount'                  => $totalDiscount,
-                    'payable_amount'            => $payableAmount,
-                    'currency'                  => Order::CURRENCY_BDT,
-                    'point'                     => $point,
+                    'amount'          => $amount,
+                    'coupon_discount' => $couponDiscount,
+                    'shipping_charge' => $deliveryCharge,
+                    'discount'        => $totalDiscount,
+                    'payable_amount'  => $payableAmount,
+                    'paid_amount'     => 0,
+                    'due_amount'      => $payableAmount,
+                    'currency'        => Order::CURRENCY_BDT,
+                    'point'           => $point,
 
-                    'payment_method'            => $validated['payment_method'],
+                    'payment_method'  => $validated['payment_method'],
+                    'payment_status'  => Order::PAYMENT_PENDING,
+                    'paid_at'         => null,
+                    'submitted_at'    => $validated['payment_method'] === 'advance' ? now() : null,
 
-                    'payment_status'            => Order::PAYMENT_PENDING, // Manual payment verify
-                    'paid_at'                   => null, // $validated['payment_method'] === 'advance' ? now() : null,
-                    'submitted_at'              => $validated['payment_method'] === 'advance' ? now() : null,
+                    'status' => Order::STATUS_PENDING,
 
-                    'status'                    => Order::STATUS_PENDING, // Order status
+                    'contact_name'   => $recipientName,
+                    'contact_number' => $recipientPhone,
+                    'contact_email'  => $user->email,
 
-                    'contact_name'              => $address->recipient_name,
-                    'contact_number'            => $address->phone,
-                    'contact_email'             => $user->email,
+                    'division_id'       => $divisionId,
+                    'district_id'       => $districtId,
+                    'upazila_id'        => $upazilaId,
+                    'police_station_id' => $policeStationId,
+                    'postal_code'       => $postalCode,
 
-                    'division_id'               => $address->division_id,
-                    'district_id'               => $address->district_id,
-                    'upazila_id'                => $address->upazila_id,
-                    'police_station_id'         => $address->police_station_id,
-                    'postal_code'               => $address->postal_code,
+                    'shipping_address' => $shippingAddress,
+                    'remarks'          => $validated['remarks'] ?? null,
 
-                    'shipping_address'          => $address->address,
-                    'remarks'                   => $validated['remarks'] ?? null,
-
-                    'ip_address'                => $request->ip(),
-                    'user_agent'                => $request->userAgent(),
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
                 ]);
 
-                if ($request->boolean('save_info')) {
-
-                    $user->update([
-                        'present_address' => $address->address,
-                    ]);
-                }
-
-                // ---------------- Order Payment (advance payment) ----------------
+                // ----------------------------------------------------------------
+                // STEP 8: Order Payment (Product Advance Payment)
+                // ----------------------------------------------------------------
                 if ($validated['payment_method'] === 'advance') {
 
-                    // Order Payment Table
                     OrderPayment::create([
-                        'order_id'                  => $order->id,
-                        'user_id'                   => $user->id,
+                        'order_id' => $order->id,
+                        'user_id'  => $user->id,
 
-                        'payment_method'            => $validated['trans_payment_method'] === 'mobile'
-                                                        ? OrderPayment::METHOD_MOBILE_BANKING
-                                                        : OrderPayment::METHOD_BANK_TRANSFER,
+                        'payment_method' => $validated['trans_payment_method'] === 'mobile'
+                            ? OrderPayment::METHOD_MOBILE_BANKING
+                            : OrderPayment::METHOD_BANK_TRANSFER,
 
-                        // Manual verification required
-                        'provider'                  => OrderPayment::PROVIDER_MANUAL,
-                        'channel'                   => OrderPayment::CHANNEL_OFFLINE,
-                        'payment_type'              => OrderPayment::TYPE_PAYMENT,
+                        'provider'     => OrderPayment::PROVIDER_MANUAL,
+                        'channel'      => OrderPayment::CHANNEL_OFFLINE,
+                        'payment_type' => OrderPayment::TYPE_PAYMENT,
 
-                        // Transaction
-                        'transaction_id'            => $validated['transaction_id'],
-                        'bank_name'                 => $validated['bank_name'] ?? null,
-                        'account_number'            => $validated['account_number'] ?? null,
-                        'account_holder_name'       => $validated['account_holder_name'] ?? null,
-                        'sender_mobile'             => $validated['sender_mobile'] ?? null,
-                        'sender_name'               => $validated['sender_name'] ?? null,
+                        'transaction_id'       => $validated['transaction_id'] ?? null,
+                        'bank_name'            => $validated['bank_name'] ?? null,
+                        'account_number'       => $validated['account_number'] ?? null,
+                        'account_holder_name'  => $validated['account_holder_name'] ?? null,
+                        'sender_mobile'        => $validated['sender_mobile'] ?? null,
+                        'sender_name'          => $validated['sender_name'] ?? null,
 
-                        // Amount
-                        'amount'                    => $order->payable_amount,
-                        'gateway_fee'               => 0,
-                        'net_amount'                => $order->payable_amount,
-                        'currency'                  => OrderPayment::CURRENCY_BDT,
+                        'amount'      => $order->payable_amount,
+                        'gateway_fee' => 0,
+                        'net_amount'  => $order->payable_amount,
+                        'currency'    => OrderPayment::CURRENCY_BDT,
 
-                        // Status
-                        'status'                    => OrderPayment::STATUS_PENDING,
-                        'paid_at'                   => null,
+                        'status'  => OrderPayment::STATUS_PENDING,
+                        'paid_at' => null,
 
-                        // Security
-                        'ip_address'                => request()->ip(),
-                        'user_agent'                => request()->userAgent(),
-                        'receipt_no'                => null,
+                        'ip_address' => $request->ip(),
+                        'user_agent' => $request->userAgent(),
+                        'receipt_no' => null,
 
-                        'remarks'                   => 'Advance payment submitted. Waiting for admin verification.',
-
-                        // for SSLCommerz
-                        // 'payment_method' => OrderPayment::METHOD_CARD,
-                        // 'provider'       => OrderPayment::PROVIDER_SSLCOMMERZ,
-                        // 'channel'        => OrderPayment::CHANNEL_ONLINE,
-                        // 'payment_type'   => OrderPayment::TYPE_PAYMENT,
-
-                        // 'gateway_transaction_id' => $sslResponse['tran_id'],
-                        // 'gateway_response'        => $sslResponse,
-
-                        // 'status'  => OrderPayment::STATUS_SUCCESS,
-                        // 'paid_at' => now(),
-
-                        // for Stripe
-                        // 'payment_method' => OrderPayment::METHOD_CARD,
-                        // 'provider'       => OrderPayment::PROVIDER_STRIPE,
-                        // 'channel'        => OrderPayment::CHANNEL_ONLINE,
-                        // 'payment_type'   => OrderPayment::TYPE_PAYMENT,
-
-                        // 'gateway_transaction_id' => $paymentIntent->id,
-                        // 'gateway_response'        => $paymentIntent->toArray(),
-
-                        // 'status'  => OrderPayment::STATUS_SUCCESS,
-                        // 'paid_at' => now(),
+                        'remarks' => 'Advance payment submitted. Waiting for admin verification.',
                     ]);
                 }
 
+                // ----------------------------------------------------------------
+                // STEP 9: Coupon Usage Log
+                // ----------------------------------------------------------------
                 if ($coupon) {
                     CouponUsage::create([
-                        'coupon_id'         => $coupon->id,
-                        'user_id'           => $user->id,
-                        'order_id'          => $order->id,
-
-                        'discount_amount'   => $couponDiscount,
-                        'order_amount'      => $amount,
-
-                        'coupon_code'       => $coupon->code,
+                        'coupon_id'       => $coupon->id,
+                        'user_id'         => $user->id,
+                        'order_id'        => $order->id,
+                        'discount_amount' => $couponDiscount,
+                        'order_amount'    => $amount,
+                        'coupon_code'     => $coupon->code,
                     ]);
 
                     $coupon->increment('used_count');
                 }
 
-                DeliveryChargePayment::create([
-                    'order_id'              => $order->id,
-                    'payment_date'          => now(),
-                    'payment_method'        => $request->trans_payment_method,
-                    'amount'                => config('app.delivery_charge', 0), // delivery charge amount
-                    'currency'              => 'BDT',
-                    'bank_name'             => $request->bank_name,
-                    'account_number'        => $request->account_number,
-                    'account_holder_name'   => $request->account_holder_name,
-                    'mobile_number'         => $request->mobile_number,
-                    'transaction_id'        => $request->transaction_id,
-                    'payment_status'        => 'pending',
-                    'paid_by'               => $user->id,
-                    'notes'                 => 'Delivery charge submitted by customer.',
-                ]);
+                // ----------------------------------------------------------------
+                // STEP 10: Delivery Charge Payment (checkbox controlled)
+                // ----------------------------------------------------------------
+                $isDeliveryChargePayment = filter_var(
+                    $validated['is_delivery_charge_payment'] ?? false,
+                    FILTER_VALIDATE_BOOLEAN
+                );
 
-                // mailtrap: cf7f17c9f64fdf9c521cd2b5d08e1323
+                if ($isDeliveryChargePayment) {
+
+                    $deliveryMethod = $validated['delivery_trans_payment_method']; // 'mobile' | 'bank'
+
+                    DeliveryChargePayment::create([
+                        'order_id' => $order->id,
+
+                        'payment_date'   => now(),
+                        'payment_method' => $deliveryMethod, // migration enum: bank | mobile | sslcommerz | cash
+
+                        'amount'   => $deliveryCharge,
+                        'currency' => 'BDT',
+
+                        // bank_name column এ mobile banking provider (Bkash/Nagad/Rocket)
+                        'bank_name' => $validated['delivery_bank_name'] ?? null,
+
+                        'branch_name' => null, // frontend এ এই field নেই
+
+                        // Method
+                        'account_number' => $deliveryMethod === 'bank'
+                            ? ($validated['delivery_account_number'] ?? null)
+                            : null,
+
+                        'mobile_number' => $deliveryMethod === 'mobile'
+                            ? ($validated['delivery_account_number'] ?? null)
+                            : null,
+
+                        'account_holder_name' => $validated['delivery_account_holder_name'] ?? null,
+                        'transaction_id'      => $validated['delivery_transaction_id'] ?? null,
+                        'reference_no'        => null,
+
+                        'payment_status' => 'pending', // admin manually verify
+                        'paid_by'        => $user->id,
+
+                        'notes' => 'Delivery charge submitted by customer. Waiting for admin verification.',
+                    ]);
+                }
+
+                // ----------------------------------------------------------------
+                // STEP 11: Mail (Optional)
+                // ----------------------------------------------------------------
                 // Mail::to($user->email)->send(new OrderMail($order));
 
                 return response()->json([
                     'success' => true,
                     'message' => 'Order placed successfully.',
                     'data' => [
-                        'order_id' => $order->id,
-                        'order_number' => $order->reg,
+                        'order_id'       => $order->id,
+                        'order_number'   => $order->reg,
                         'payment_status' => $order->payment_status,
                         'payable_amount' => $order->payable_amount,
-                    ]
+                    ],
                 ], 201);
             });
 
@@ -633,15 +642,15 @@ class AdminCartController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => collect($e->errors())->flatten()->first(),
-                'errors' => $e->errors(),
+                'errors'  => $e->errors(),
             ], 422);
         } catch (\Throwable $e) {
 
             Log::error('Order confirmation failed', [
                 'user_id' => $user?->id,
-                'reg' => $reg,
+                'reg'     => $reg,
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'trace'   => $e->getTraceAsString(),
             ]);
 
             return response()->json([
@@ -651,7 +660,6 @@ class AdminCartController extends Controller
                     : $e->getMessage(),
             ], 500);
         }
-
     }
 
 }
