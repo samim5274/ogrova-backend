@@ -60,6 +60,8 @@ class OrderController extends Controller
                 ->whereNotIn('status', [
                     Order::STATUS_DELIVERED,
                     Order::STATUS_CANCELLED,
+                    Order::STATUS_FAILED,
+                    Order::STATUS_RETURNED,
                 ])
                 ->select([
                     'id',
