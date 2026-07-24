@@ -19,8 +19,8 @@ return [
 
     'allowed_methods' => ['*'],
 
-    // 'allowed_origins' => ['https://dynamicbazarmerchantbd.com', 'https://api.dynamicbazarmerchantbd.com'],
-    'allowed_origins' => ['*'],
+    'allowed_origins' => ['https://ogrova.mercuviax.com','http://localhost:5173', 'http://127.0.0.1:5173'],
+    // 'allowed_origins' => ['*'],
 
     'allowed_origins_patterns' => [],
 
@@ -28,7 +28,7 @@ return [
 
     'exposed_headers' => [],
 
-    'max_age' => 0,
+    'max_age' => 3600,
 
     'supports_credentials' => true,
 

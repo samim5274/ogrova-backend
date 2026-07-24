@@ -56,10 +56,32 @@ class OrderController extends Controller
 
     public function index(){
         try{
-            $orders = Order::with('user')
-                ->where('status', '!=' , 'Delivered')
-                ->where('status', '!=' , 'Cancelled')
-                ->latest()->get();
+            $orders = Order::with(['user:id,name,user_id'])
+                ->whereNotIn('status', [
+                    Order::STATUS_DELIVERED,
+                    Order::STATUS_CANCELLED,
+                ])
+                ->select([
+                    'id',
+                    'user_id',
+                    'slug',
+                    'reg',
+                    'date',
+                    'amount',
+                    'coupon_code',
+                    'coupon_discount',
+                    'discount',
+                    'payable_amount',
+                    'payment_method',
+                    'payment_status',
+                    'status',
+                    'contact_name',
+                    'contact_number',
+                    'confirmed_at',
+                    'delivered_at'
+                ])
+                ->latest('id')
+                ->get();
 
             return response()->json([
                 'success' => true,
