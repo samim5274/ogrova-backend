@@ -1168,6 +1168,40 @@ class OrderController extends Controller
                     'paid_at'        => $paymentStatus === Order::PAYMENT_PAID ? now() : null,
                 ]);
 
+                // Delivery payment
+                DeliveryChargePayment::create([
+                        'order_id' => $order->id,
+
+                        'payment_date'   => now(),
+                        'payment_method' => $validated['payment_method'], // migration enum: bank | mobile | sslcommerz | cash
+
+                        'amount'   => $order->shipping_charge,
+                        'currency' => 'BDT',
+
+                        // bank_name column এ mobile banking provider (Bkash/Nagad/Rocket)
+                        'bank_name' => $validated['delivery_bank_name'] ?? null,
+
+                        'branch_name' => null, // frontend এ এই field নেই
+
+                        // Method
+                        'account_number' => $validated['payment_method'] === 'bank'
+                            ? ($validated['delivery_account_number'] ?? null)
+                            : null,
+
+                        'mobile_number' => $validated['payment_method'] === 'mobile'
+                            ? ($validated['delivery_account_number'] ?? null)
+                            : null,
+
+                        'account_holder_name' => $validated['delivery_account_holder_name'] ?? null,
+                        'transaction_id'      => $validated['delivery_transaction_id'] ?? null,
+                        'reference_no'        => null,
+
+                        'payment_status' => 'pending', // admin manually verify
+                        'paid_by'        => $user->id,
+
+                        'notes' => 'Delivery charge submitted by customer. Verification by admin.',
+                    ]);
+
                 return $orderPayment;
             });
 
