@@ -1170,36 +1170,27 @@ class OrderController extends Controller
 
                 // Delivery payment
                 DeliveryChargePayment::create([
-                        'order_id' => $order->id,
+                        'order_id'            => $order->id,
 
-                        'payment_date'   => now(),
-                        'payment_method' => $validated['payment_method'], // migration enum: bank | mobile | sslcommerz | cash
+                        'payment_date'        => now(),
+                        'payment_method'      => $validated['payment_method'], // migration enum: bank | mobile | sslcommerz | cash
 
-                        'amount'   => $order->shipping_charge,
-                        'currency' => 'BDT',
+                        'amount'              => $order->shipping_charge,
+                        'currency'            => 'BDT',
 
                         // bank_name column এ mobile banking provider (Bkash/Nagad/Rocket)
-                        'bank_name' => $validated['delivery_bank_name'] ?? null,
+                        'bank_name'           => $bankName,
+                        'branch_name'         => null, // frontend এ এই field নেই
+                        'account_number'      => $accountNumber,
+                        'mobile_number'       => $validated['sender_mobile'] ?? null,
+                        'account_holder_name' => $accountHolderName,
+                        'transaction_id'      => $validated['transaction_id'] ?? null,
+                        'reference_no'        => $validated['remarks'] ?? null,
 
-                        'branch_name' => null, // frontend এ এই field নেই
+                        'payment_status'      => 'success', // admin manually verify
+                        'paid_by'             => $user->id,
 
-                        // Method
-                        'account_number' => $validated['payment_method'] === 'bank'
-                            ? ($validated['delivery_account_number'] ?? null)
-                            : null,
-
-                        'mobile_number' => $validated['payment_method'] === 'mobile'
-                            ? ($validated['delivery_account_number'] ?? null)
-                            : null,
-
-                        'account_holder_name' => $validated['delivery_account_holder_name'] ?? null,
-                        'transaction_id'      => $validated['delivery_transaction_id'] ?? null,
-                        'reference_no'        => null,
-
-                        'payment_status' => 'pending', // admin manually verify
-                        'paid_by'        => $user->id,
-
-                        'notes' => 'Delivery charge submitted by customer. Verification by admin.',
+                        'notes'               => 'Delivery charge submitted by admin order by Cash on delivery',
                     ]);
 
                 return $orderPayment;

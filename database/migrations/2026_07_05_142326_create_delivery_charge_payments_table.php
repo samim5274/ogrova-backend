@@ -16,10 +16,13 @@ return new class extends Migration
             $table->foreignId('order_id')->constrained('orders')->onDelete('restrict');
             $table->dateTime('payment_date');
             $table->enum('payment_method', [
-                'bank',
-                'mobile',
-                'sslcommerz',
-                'cash'
+                'cod',
+                'cash',
+                'bank_transfer',
+                'mobile_banking',
+                'card',
+                'paypal',
+                'wallet',
             ]);
             $table->decimal('amount', 10, 2)->default(0);
             $table->string('currency')->default('BDT');
