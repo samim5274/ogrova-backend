@@ -295,6 +295,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/confirm/{reg}', [OrderController::class, 'confirmOrder']);
         Route::post('/payments/{payment_id}/verify', [OrderController::class, 'verifyPayment']);
         Route::post('/{reg}/payments', [OrderController::class, 'confirmPayment']);
+        Route::patch('/delivery-charge-payments/{id}/status', [OrderController::class, 'deliveryStatusUpdate']);
 
         Route::prefix('reports')->group(function(){
             Route::get('/sale', [OrderController::class, 'reportSale']);

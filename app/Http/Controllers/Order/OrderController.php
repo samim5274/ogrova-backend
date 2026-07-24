@@ -676,7 +676,14 @@ class OrderController extends Controller
 
     public function getOrderDetails($reg){
         try{
-            $order = Order::with(['user', 'payment', 'division', 'district', 'upazila', 'policeStation'])
+            $order = Order::with([
+                    'user',
+                    'payment',
+                    'division:id,name',
+                    'district:id,name',
+                    'upazila:id,name',
+                    'policeStation:id,name',
+                ])
                 ->where('reg', $reg)
                 ->first();
 
@@ -688,6 +695,8 @@ class OrderController extends Controller
                 ], 404);
             }
 
+            $deliveryCharge = DeliveryChargePayment::with('paidBy')
+            ->where('order_id', $order->id)->first();
 
             $orderPayment = null;
 
@@ -699,20 +708,23 @@ class OrderController extends Controller
                 'data' => [
                     'order' => $order,
                     'payment' => $orderPayment,
+                    'deliveryCharge' => $deliveryCharge,
                 ],
             ], 200);
         } catch (\Throwable $e) {
-            Log::error('Failed to fetch order details.', [
-                'registration' => $reg,
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-            ]);
+            Log::error($e);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Something went wrong while fetching order details.',
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ], 500);
+
+            // return response()->json([
+            //     'success' => false,
+            //     'message' => 'Something went wrong while fetching order details.',
+            // ], 500);
         }
     }
 
@@ -1191,6 +1203,55 @@ class OrderController extends Controller
                 'message' => app()->isProduction()
                     ? 'Unable to process payment.'
                     : $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function deliveryStatusUpdate(Request $request, $id)
+    {
+        $request->validate([
+            'payment_status' => 'required|in:pending,success,return,failed',
+        ]);
+
+        try {
+            $deliveryCharge = DeliveryChargePayment::find($id);
+
+            if (! $deliveryCharge) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Delivery charge payment not found.',
+                    'data'    => null,
+                ], 404);
+            }
+
+            $updateData = [
+                'payment_status' => $request->payment_status,
+            ];
+
+            if ($request->payment_status === 'success' && $deliveryCharge->payment_status !== 'success') {
+                $updateData['paid_by'] = auth()->id();
+                $updateData['payment_date'] = now();
+            }
+
+            $deliveryCharge->update($updateData);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Delivery charge status updated successfully.',
+                'data'    => $deliveryCharge->fresh('paidBy'),
+            ], 200);
+        } catch (\Throwable $e) {
+
+            Log::error('Failed to update delivery charge status.', [
+                'id'    => $id,
+                'error' => $e->getMessage(),
+                'file'  => $e->getFile(),
+                'line'  => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong while updating delivery charge status.',
             ], 500);
         }
     }
