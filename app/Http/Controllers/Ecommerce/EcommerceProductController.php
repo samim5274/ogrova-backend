@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
 use App\Http\Requests\StoreProductRequest;
 use App\Models\User;
@@ -24,6 +25,8 @@ use App\Models\Upazila;
 use App\Models\PoliceStation;
 use App\Models\ProductVariant;
 use App\Models\ProductImage;
+use App\Models\ProductRating;
+use App\Models\Order;
 
 class EcommerceProductController extends Controller
 {
@@ -291,6 +294,45 @@ class EcommerceProductController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Something went wrong while fetching category products.',
+            ], 500);
+        }
+    }
+
+    public function otherDetails($user_id)
+    {
+        try
+        {
+            $totalOrder = Order::where('user_id', $user_id)->count();
+
+            $totalPoint = Order::where('user_id', $user_id)
+                ->where('status', Order::STATUS_DELIVERED)
+                ->sum('point');
+
+            $totalRating = ProductRating::where('user_id', $user_id)->count();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'User details fetched successfully.',
+                'data' => [
+                    'total_order'  => $totalOrder,
+                    'total_point'  => $totalPoint,
+                    'total_rating' => $totalRating,
+                ]
+            ], 200);
+
+        } catch (\Throwable $e) {
+            Log::error('Failed to fetch user details.', [
+                'user_id' => $user_id,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ], 500);
         }
     }

@@ -219,6 +219,7 @@ Route::prefix('public')->group(function () {
     Route::get('/get-brands', [ProductController::class, 'getBrand']);
     Route::get('/product/{slug}', [ProductController::class, 'show'])->where('slug', '[a-zA-Z0-9\-]+');
     Route::get('/category-products/{id}', [EcommerceProductController::class, 'getCategoryProducts']);
+    Route::get('/{user_id}/details', [EcommerceProductController::class, 'otherDetails']);
 });
 
 // =============================
