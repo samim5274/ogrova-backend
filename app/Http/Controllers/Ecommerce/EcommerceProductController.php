@@ -27,6 +27,8 @@ use App\Models\ProductVariant;
 use App\Models\ProductImage;
 use App\Models\ProductRating;
 use App\Models\Order;
+use App\Models\Cart;
+use App\Models\OrderPayment;
 
 class EcommerceProductController extends Controller
 {
@@ -333,6 +335,90 @@ class EcommerceProductController extends Controller
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
+            ], 500);
+        }
+    }
+
+    public function userOrderDetails()
+    {
+        try
+        {
+            $user = auth()->user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized user',
+                ], 401);
+            }
+
+            $orders = Order::where('user_id', $user->id)->orderBy('id', 'desc')->paginate(10);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'User details fetched successfully.',
+                'data' => $orders
+            ], 200);
+
+        } catch (\Throwable $e) {
+            Log::error('Failed to fetch user details.', [
+                'user_id' => $user_id,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ], 500);
+        }
+    }
+
+    public function orderItemsDetails($reg)
+    {
+        try
+        {
+            $user = auth()->user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized user',
+                ], 401);
+            }
+
+            $cartItems = Cart::with(['product'])->where('reg', $reg)->get();
+            if ($cartItems->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No order items found.',
+                ], 404);
+            }
+
+            $orderPayment = OrderPayment::where('order_id', $cartItems[0]->reg)->first();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'User details fetched successfully.',
+                'data' => [
+                    'cartItems' => $cartItems,
+                    'orderPayment' => $orderPayment,
+                ]
+            ], 200);
+
+        } catch (\Throwable $e) {
+            Log::error('Failed to retrieve order details.', [
+                'user_id' => $user->id,
+                'reg'     => $reg,
+                'error'   => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage().' Something went wrong while retrieving order details.',
             ], 500);
         }
     }
