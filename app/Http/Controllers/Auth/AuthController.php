@@ -100,36 +100,24 @@ class AuthController extends Controller
             'blood_group'       => ['nullable','string','max:10'],
             'present_address'   => ['nullable','string','max:500'],
             'permanent_address' => ['nullable','string','max:500'],
-            'national_id'       => ['required','string','max:50'],
-            'religion'          => ['nullable','string','max:50'],
             'photo'             => ['nullable','image','max:2048'],
-            'refer_id'          => ['required','string', 'exists:users,user_id'],
-            'product_id'        => ['required', 'exists:products,id'],
 
             // Password Validation
             'password' => [
                 'required',
-                'confirmed', // password_confirmation check করবে
+                'confirmed',
                 Password::min(8)
                     ->letters()     // Character
                     ->numbers()     // Number
                     ->symbols()     // Special char
                     ->mixedCase(),  // Upper + Lower case
             ],
-
-            'root_user_id'      => ['required','exists:users,id'],
-            'position'          => ['required','in:left,right'],
-        ],[
-            'root_user_id.exists' => 'The provided referrer ID does not exist in our records.',
         ]);
 
         $photoPath = null;
 
         try {
             return DB::transaction(function () use ($request, $validated, $pointService, &$photoPath) {
-
-                // Find refer user
-                $referUser = User::where('user_id', $validated['refer_id'])->firstOrFail();
 
                 // Upload photo
                 if ($request->hasFile('photo')) {
@@ -139,25 +127,13 @@ class AuthController extends Controller
                 // user create
                 $user = User::create(array_merge($validated, [
                     'password' => Hash::make($validated['password']),
-                    'refer_id' => $referUser->id,
                     'photo'    => $photoPath,
                     'is_profile_completed' => !empty($validated['phone']),
                 ]));
 
-                // uniqure user id
                 $user->update([
-                    'user_id' => 'DBMBL' . str_pad($user->id, 4, '0', STR_PAD_LEFT)
+                    'user_id' => 'OGVA' . str_pad($user->id, 4, '0', STR_PAD_LEFT)
                 ]);
-
-                // assign tree
-                $this->assignToTree($user, $validated['root_user_id'], $validated['position']);
-
-                // MLM update
-                // $pointService->referralBonus($user); // ata active korte hole add more value: order->reg
-                $pointService->updateCounts($user, $validated['product_id']);
-
-                // Product order
-                $this->addProductToCartForUser($user, $validated['product_id']);
 
                 return response()->json([
                     'success' => true,
