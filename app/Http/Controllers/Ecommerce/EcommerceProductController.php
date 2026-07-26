@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 use App\Http\Requests\StoreProductRequest;
 use App\Models\User;
@@ -106,7 +107,9 @@ class EcommerceProductController extends Controller
 
     public function getDivision(){
         try{
-            $division = Division::all();
+            $division = Cache::remember('public_divisions', now()->addDay(), function () {
+                return Division::orderBy('name')->get();
+            });
             return response()->json([
                 'success' => true,
                 'data' => $division
@@ -121,9 +124,15 @@ class EcommerceProductController extends Controller
 
     public function getDistrict(Request $request){
         try{
-            $district = District::where('division_id', $request->division_id)
-                ->orderBy('name')
-                ->get();
+            $district = Cache::remember(
+                'public_districts_' . $request->division_id,
+                now()->addDay(),
+                function () use ($request) {
+                    return District::where('division_id', $request->division_id)
+                        ->orderBy('name')
+                        ->get();
+                }
+            );
 
             return response()->json([
                 'success' => true,
@@ -139,9 +148,15 @@ class EcommerceProductController extends Controller
 
     public function getUpazila(Request $request){
         try{
-            $upazila = Upazila::where('district_id', $request->district_id)
-                ->orderBy('name')
-                ->get();
+            $upazila = Cache::remember(
+                'public_upazilas_' . $request->district_id,
+                now()->addDay(),
+                function () use ($request) {
+                    return Upazila::where('district_id', $request->district_id)
+                        ->orderBy('name')
+                        ->get();
+                }
+            );
             return response()->json([
                 'success' => true,
                 'data' => $upazila,
@@ -156,9 +171,15 @@ class EcommerceProductController extends Controller
 
     public function getPoliceStation(Request $request){
         try{
-            $policeStation = PoliceStation::where('upazila_id', $request->upazila_id)
-                ->orderBy('name')
-                ->get();
+            $policeStation = Cache::remember(
+                'public_police_stations_' . $request->upazila_id,
+                now()->addDay(),
+                function () use ($request) {
+                    return PoliceStation::where('upazila_id', $request->upazila_id)
+                        ->orderBy('name')
+                        ->get();
+                }
+            );
             return response()->json([
                 'success' => true,
                 'data' => $policeStation,
@@ -173,7 +194,11 @@ class EcommerceProductController extends Controller
 
     public function getCategory(){
         try{
-            $productCategories = ProductCategory::all();
+            $categories = Cache::remember('public_product_categories', now()->addDay(), function () {
+                return ProductCategory::where('is_active', 1)
+                    ->orderBy('name')
+                    ->get();
+            });
             return response()->json([
                 'success' => true,
                 'data' => $productCategories
@@ -188,7 +213,11 @@ class EcommerceProductController extends Controller
 
     public function getSubCategory(){
         try{
-            $productSubCategories = ProductSubCategory::with('category:id,name')->get();
+            $subCategories = Cache::remember('public_product_subcategories', now()->addDay(), function () {
+                return ProductSubCategory::with('category:id,name')
+                    ->orderBy('name')
+                    ->get();
+            });
             return response()->json([
                 'success' => true,
                 'data' => $productSubCategories
@@ -203,7 +232,11 @@ class EcommerceProductController extends Controller
 
     public function getBrand(){
         try{
-            $productBrands = Brand::all();
+            $brands = Cache::remember('public_brands', now()->addDay(), function () {
+                return Brand::where('is_active', 1)
+                    ->orderBy('name')
+                    ->get();
+            });
             return response()->json([
                 'success' => true,
                 'data' => $productBrands

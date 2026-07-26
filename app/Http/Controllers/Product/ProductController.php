@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cache;
 
 use App\Http\Requests\StoreProductRequest;
 use App\Models\User;
@@ -49,7 +50,11 @@ class ProductController extends Controller
 
     public function getCategory(){
         try{
-            $productCategories = ProductCategory::all();
+            $productCategories = Cache::remember('public_product_categories', now()->addDay(), function () {
+                return ProductCategory::where('is_active', 1)
+                    ->orderBy('name')
+                    ->get();
+            });
             return response()->json([
                 'success' => true,
                 'data' => $productCategories
@@ -64,7 +69,11 @@ class ProductController extends Controller
 
     public function getSubCategory(){
         try{
-            $productSubCategories = ProductSubCategory::with('category:id,name')->get();
+            $productSubCategories = Cache::remember('public_product_subcategories', now()->addDay(), function () {
+                return ProductSubCategory::with('category:id,name')
+                    ->orderBy('name')
+                    ->get();
+            });
             return response()->json([
                 'success' => true,
                 'data' => $productSubCategories
@@ -79,7 +88,11 @@ class ProductController extends Controller
 
     public function getBrand(){
         try{
-            $productBrands = Brand::all();
+            $productBrands = Cache::remember('public_brands', now()->addDay(), function () {
+                return Brand::where('is_active', 1)
+                    ->orderBy('name')
+                    ->get();
+            });
             return response()->json([
                 'success' => true,
                 'data' => $productBrands
@@ -147,6 +160,8 @@ class ProductController extends Controller
                 'is_active' => true,
             ]);
 
+            Cache::forget('public_brands');
+
             return response()->json([
                 'success' => true,
                 'message' => 'Brand created successfully.',
@@ -170,7 +185,7 @@ class ProductController extends Controller
 
             $brand = Brand::findOrFail($id);
             $brand->delete();
-
+            Cache::forget('public_brands');
             return response()->json([
                 'success' => true,
                 'message' => 'Brand deleted successfully.'
@@ -216,6 +231,8 @@ class ProductController extends Controller
             ]);
 
             DB::commit();
+
+            Cache::forget('public_brands');
 
             return response()->json([
                 'success' => true,
@@ -304,6 +321,8 @@ class ProductController extends Controller
                 'canonical_url' => url("/category/{$category->slug}/{$category->id}")
             ]);
 
+            Cache::forget('public_product_categories');
+
             return response()->json([
                 'success' => true,
                 'message' => 'Category created successfully.',
@@ -326,6 +345,8 @@ class ProductController extends Controller
         $category = ProductCategory::findOrFail($id);
 
         $category->delete();
+
+        Cache::forget('public_product_categories');
 
         return response()->json([
             'success' => true,
@@ -355,6 +376,7 @@ class ProductController extends Controller
                 'slug'      => Str::slug($request->name),
                 'is_active' => $request->is_active ?? true,
             ]);
+            Cache::forget('public_product_categories');
             return response()->json([
                 'success' => true,
                 'message' => 'Category updated successfully.',
@@ -450,6 +472,7 @@ class ProductController extends Controller
 
             ]);
 
+            Cache::forget('public_product_subcategories');
 
             return response()->json([
                 'success' => true,
@@ -477,6 +500,8 @@ class ProductController extends Controller
         $subCategory = ProductSubCategory::findOrFail($id);
 
         $subCategory->delete();
+
+        Cache::forget('public_product_subcategories');
 
         return response()->json([
             'success' => true,
@@ -510,6 +535,8 @@ class ProductController extends Controller
                 'category_id'=> $request->category_id,
                 'is_active'  => $request->is_active ?? true,
             ]);
+
+            Cache::forget('public_product_subcategories');
 
             return response()->json([
                 'success' => true,
