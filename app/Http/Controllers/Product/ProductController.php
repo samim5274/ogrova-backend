@@ -28,12 +28,17 @@ class ProductController extends Controller
 {
     public function index(){
         try{
-            $products = Product::with([
-                'category:id,name',
-                'subcategory:id,name',
-                'brand:id,name',
-                'images:id,product_id,image_path,is_primary'
-            ])->get();
+            $products = Cache::remember('public_products', now()->addMinutes(30), function () {
+                return Product::with([
+                        'category:id,name',
+                        'subcategory:id,name',
+                        'brand:id,name',
+                        'images:id,product_id,image_path,is_primary'
+                    ])
+                    ->where('is_active', 1)
+                    ->where('approval_status', 1)
+                    ->get();
+            });
 
             return response()->json([
                 'success' => true,
