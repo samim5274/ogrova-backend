@@ -49,6 +49,11 @@ return new class extends Migration
             $table->string('otp', 10)->nullable();
             $table->timestamp('otp_expires_at')->nullable();
 
+            // Social Login
+            $table->string('facebook_id')->nullable();
+            $table->string('google_id')->nullable();
+            $table->string('github_id')->nullable();
+
             // Login info
             $table->timestamp('last_login_at')->nullable();
             $table->ipAddress('last_login_ip')->nullable();

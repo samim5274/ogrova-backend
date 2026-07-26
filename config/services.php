@@ -31,4 +31,23 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+
+    'facebook' => [
+        'client_id' => '1266979711491201',
+        'client_secret' => '073d4b1d7d85d1a84f009c9c3fa7438d',
+        'redirect' => 'http://localhost:8000/login/facebook/callback',
+    ],
+
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI'),
+    ],
+
+    'github' => [
+        'client_id' => 'Ov23li51h0HV3SaCoQ1T',
+        'client_secret' => 'c77db557b56fd2f3b97a88c2693ee51b498a5221',
+        'redirect' => 'http://localhost:8000/login/github/callback',
+    ],
+
 ];

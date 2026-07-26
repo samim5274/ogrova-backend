@@ -35,6 +35,8 @@ Route::prefix('register')->group(function () {
     Route::post('/create-user', [AuthController::class, 'register']);
 });
 
+// Route::get('/auth/google/redirect', [SocialAuthController::class, 'redirectToGoogle']);
+// Route::get('/auth/google/callback', [SocialAuthController::class, 'handleGoogleCallback']);
 
 
 
