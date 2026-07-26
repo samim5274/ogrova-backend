@@ -320,4 +320,9 @@ class Order extends Model
     {
         return $this->hasOne(OrderPayment::class);
     }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(Cart::class, 'reg', 'reg');
+    }
 }

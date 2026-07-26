@@ -351,7 +351,19 @@ class EcommerceProductController extends Controller
                 ], 401);
             }
 
-            $orders = Order::where('user_id', $user->id)->orderBy('id', 'desc')->paginate(10);
+            $orders = Order::where('user_id', $user->id)
+                        ->with([
+                                'user',
+                                'coupon',
+                                'division',
+                                'district',
+                                'upazila',
+                                'policeStation',
+                                'payment',
+                                'items.product'
+                            ])
+                        ->orderBy('id', 'desc')
+                        ->paginate(10);
 
             return response()->json([
                 'success' => true,
@@ -361,7 +373,6 @@ class EcommerceProductController extends Controller
 
         } catch (\Throwable $e) {
             Log::error('Failed to fetch user details.', [
-                'user_id' => $user_id,
                 'error' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
