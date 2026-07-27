@@ -40,8 +40,7 @@ Route::get('/auth/{provider}/redirect', [SocialAuthController::class, 'redirect'
 
 Route::get('auth/facebook/callback', [SocialAuthController::class, 'loginWithFacebook']);
 
-// Route::get('login/google', [SocialAuthController::class, 'googleRedirect']);
-// Route::get('login/google/callback', [SocialAuthController::class, 'loginWithGoogle']);
+Route::get('auth/google/callback', [SocialAuthController::class, 'loginWithGoogle']);
 
 // Route::get('login/github', [SocialAuthController::class, 'githubRedirect']);
 // Route::get('login/github/callback', [SocialAuthController::class, 'loginWithGithub']);

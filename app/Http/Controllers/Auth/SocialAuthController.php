@@ -6,6 +6,10 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+
 use App\Models\User;
 
 class SocialAuthController extends Controller
@@ -47,7 +51,8 @@ class SocialAuthController extends Controller
 
 
     // login with google
-    public function loginWithFacebook() {
+    public function loginWithFacebook()
+    {
         try {
             $facebookUser = Socialite::driver('facebook')->stateless()->user();
 
@@ -86,26 +91,64 @@ class SocialAuthController extends Controller
     }
 
     // login with google
+    public function loginWithGoogle()
+    {
+        try {
+            $googleUser = Socialite::driver('google')->stateless()->user();
+            
+            if (!$googleUser->getEmail()) {
+                return redirect(
+                    env('FRONTEND_URL') .
+                    '/login?error=' . urlencode('Google account has no email address.')
+                );
+            }
 
-    public function googleRedirect() {
-        return Socialite::driver('google')->redirect();
-    }
+            DB::beginTransaction();
 
-    public function loginWithGoogle() {
-        $user = Socialite::driver('google')->stateless()->user();
-        $findUser = User::where('google_id', $user->id)->first();
-        if($findUser) {
-            Auth::login($findUser);
-            return redirect('/home');
-        } else {
-            $newUser = new User();
-            $newUser->name = $user->name;
-            $newUser->email = $user->email;
-            $newUser->google_id = $user->id;
-            $newUser->password = bcrypt('123456789');
-            $newUser->save();
-            Auth::login($newUser);
-            return redirect('/home');
+            $user = User::where('google_id', $googleUser->getId())->first();
+
+            if (!$user) {
+                $user = User::where('email', $googleUser->getEmail())->first();
+
+                if ($user) {
+                    $user->google_id = $googleUser->getId();
+                    $user->save();
+                } else {
+                    $user = User::create([
+                        'name'      => $googleUser->getName(),
+                        'email'     => $googleUser->getEmail(),
+                        'google_id' => $googleUser->getId(),
+                        'photo'     => $googleUser->getAvatar(),
+                        'password'  => bcrypt(Str::random(32)),
+                    ]);
+                }
+            }
+
+            Auth::login($user);
+
+            $token = $user->createToken('social-login')->plainTextToken;
+
+            DB::commit();
+
+            return redirect(
+                env('FRONTEND_URL') .
+                '/auth/social?token=' . urlencode($token)
+            );
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            Log::error('Google Login Error', [
+                'message' => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
+            ]);
+
+            return redirect(
+                env('FRONTEND_URL') .
+                '/login?error=' . urlencode('Google login failed. Please try again.')
+            );
         }
     }
 
