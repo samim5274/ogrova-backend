@@ -288,6 +288,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // E-commerce Admin order Routes
 // =============================
 use App\Http\Controllers\Order\OrderController;
+use App\Http\Controllers\Order\CouponController;
 Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('orders')->group(function () {
         Route::get('/', [OrderController::class, 'index']);
@@ -320,7 +321,6 @@ Route::middleware('auth:sanctum')->group(function () {
 // =============================
 // Coupon Controller
 // =============================
-use App\Http\Controllers\Order\CouponController;
 Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('coupon')->group(function () {
         Route::post('/check', [CouponController::class, 'checkCoupon']);

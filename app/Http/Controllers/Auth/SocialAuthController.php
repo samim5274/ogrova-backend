@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Laravel\Socialite\Facades\Socialite;
-use Auth;
+use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 
 class SocialAuthController extends Controller
@@ -47,26 +47,41 @@ class SocialAuthController extends Controller
 
 
     // login with google
-
-    public function facebookRedirect() {
-        return Socialite::driver('facebook')->redirect();
-    }
-
     public function loginWithFacebook() {
-        $user = Socialite::driver('facebook')->stateless()->user();
-        $findUser = User::where('facebook_id', $user->id)->first();
-        if($findUser) {
-            Auth::login($findUser);
-            return redirect(env('FRONTEND_URL')."/auth/social?token=".$token);
-        } else {
-            $newUser = new User();
-            $newUser->name = $user->name;
-            $newUser->email = $user->email;
-            $newUser->facebook_id = $user->id;
-            $newUser->password = bcrypt('123456789');
-            $newUser->save();
-            Auth::login($newUser);
-            return redirect(env('FRONTEND_URL')."/auth/social?token=".$token);
+        try {
+            $facebookUser = Socialite::driver('facebook')->stateless()->user();
+
+            $user = User::where('facebook_id', $facebookUser->id)->first();
+
+            if (!$user) {
+                $user = User::where('email', $facebookUser->email)->first();
+
+                if ($user) {
+                    $user->facebook_id = $facebookUser->id;
+                    $user->save();
+                } else {
+                    $user = User::create([
+                        'name' => $facebookUser->name,
+                        'email' => $facebookUser->email,
+                        'facebook_id' => $facebookUser->id,
+                        'photo' => $facebookUser->avatar_original,
+                        'password' => bcrypt(\Illuminate\Support\Str::random(32)),
+                    ]);
+                }
+            }
+
+            Auth::login($user);
+
+            $token = $user->createToken('social-login')->plainTextToken;
+
+            return redirect(env('FRONTEND_URL') . '/auth/social?token=' . urlencode($token));
+
+        } catch (\Throwable $e) {
+
+            return redirect(
+                env('FRONTEND_URL') .
+                '/login?error=' . urlencode($e->getMessage())
+            );
         }
     }
 

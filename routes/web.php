@@ -36,14 +36,12 @@ Route::get('/clear', function () {
 //SSLCOMMERZ END
 
 
-// Route::get('/auth/{provider}/redirect', [SocialAuthController::class, 'redirect']);
-// Route::get('/auth/{provider}/callback', [SocialAuthController::class, 'callback']);
+Route::get('/auth/{provider}/redirect', [SocialAuthController::class, 'redirect']);
 
-// Route::get('login/facebook', [SocialController::class, 'facebookRedirect']);
-// Route::get('auth/facebook/callback', [SocialController::class, 'loginWithFacebook']);
+Route::get('auth/facebook/callback', [SocialAuthController::class, 'loginWithFacebook']);
 
-// Route::get('login/google', [SocialController::class, 'googleRedirect']);
-// Route::get('login/google/callback', [SocialController::class, 'loginWithGoogle']);
+// Route::get('login/google', [SocialAuthController::class, 'googleRedirect']);
+// Route::get('login/google/callback', [SocialAuthController::class, 'loginWithGoogle']);
 
-// Route::get('login/github', [SocialController::class, 'githubRedirect']);
-// Route::get('login/github/callback', [SocialController::class, 'loginWithGithub']);
+// Route::get('login/github', [SocialAuthController::class, 'githubRedirect']);
+// Route::get('login/github/callback', [SocialAuthController::class, 'loginWithGithub']);
