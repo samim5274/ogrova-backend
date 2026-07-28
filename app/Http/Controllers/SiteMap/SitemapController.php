@@ -13,18 +13,73 @@ class SitemapController extends Controller
 {
     public function index()
     {
+        $frontend = rtrim(config('app.frontend_url', env('FRONTEND_URL')), '/');
+
         $products = Product::where('status', 1)
             ->select('slug', 'updated_at')
-            ->latest('updated_at')
+            ->orderByDesc('updated_at')
             ->get();
 
         $categories = ProductCategory::where('status', 1)
             ->select('id', 'slug', 'updated_at')
-            ->latest('updated_at')
+            ->orderByDesc('updated_at')
             ->get();
 
-        return response()
-            ->view('sitemap', compact('products', 'categories'))
-            ->header('Content-Type', 'application/xml');
+        $xml = new \XMLWriter();
+
+        $xml->openMemory();
+        $xml->startDocument('1.0', 'UTF-8');
+
+        $xml->startElement('urlset');
+        $xml->writeAttribute(
+            'xmlns',
+            'http://www.sitemaps.org/schemas/sitemap/0.9'
+        );
+
+        // Home
+        $xml->startElement('url');
+        $xml->writeElement('loc', $frontend . '/');
+        $xml->writeElement('lastmod', now()->toAtomString());
+        $xml->writeElement('changefreq', 'daily');
+        $xml->writeElement('priority', '1.0');
+        $xml->endElement();
+
+        // Categories
+        foreach ($categories as $category) {
+            $xml->startElement('url');
+            $xml->writeElement(
+                'loc',
+                $frontend . '/category/' . $category->slug . '/' . $category->id
+            );
+            $xml->writeElement(
+                'lastmod',
+                optional($category->updated_at)->toAtomString()
+            );
+            $xml->writeElement('changefreq', 'weekly');
+            $xml->writeElement('priority', '0.8');
+            $xml->endElement();
+        }
+
+        // Products
+        foreach ($products as $product) {
+            $xml->startElement('url');
+            $xml->writeElement(
+                'loc',
+                $frontend . '/product-details/' . $product->slug
+            );
+            $xml->writeElement(
+                'lastmod',
+                optional($product->updated_at)->toAtomString()
+            );
+            $xml->writeElement('changefreq', 'weekly');
+            $xml->writeElement('priority', '0.7');
+            $xml->endElement();
+        }
+
+        $xml->endElement();
+        $xml->endDocument();
+
+        return response($xml->outputMemory(), 200)
+            ->header('Content-Type', 'application/xml; charset=UTF-8');
     }
 }
