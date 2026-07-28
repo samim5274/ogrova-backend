@@ -15,13 +15,13 @@ class SitemapController extends Controller
         $frontend = rtrim(config('app.frontend_url'), '/');
 
         $products = Product::query()
-            ->where('status', 1)
+            ->where('approval_status', 1)
             ->select('slug', 'updated_at')
             ->latest('updated_at')
             ->get();
 
         $categories = ProductCategory::query()
-            ->where('status', 1)
+            ->where('approval_status', 1)
             ->select('id', 'slug', 'updated_at')
             ->latest('updated_at')
             ->get();
