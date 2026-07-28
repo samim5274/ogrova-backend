@@ -14,12 +14,12 @@ class SitemapController extends Controller
     public function index()
     {
         $products = Product::where('status', 1)
-            ->select('id','slug','updated_at')
+            ->select('slug', 'updated_at')
             ->latest('updated_at')
             ->get();
 
         $categories = ProductCategory::where('status', 1)
-            ->select('id','slug','updated_at')
+            ->select('id', 'slug', 'updated_at')
             ->latest('updated_at')
             ->get();
 
