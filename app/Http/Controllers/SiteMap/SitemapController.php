@@ -3,30 +3,30 @@
 namespace App\Http\Controllers\SiteMap;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-
 use App\Models\Product;
 use App\Models\ProductCategory;
 use Illuminate\Http\Response;
+use XMLWriter;
 
 class SitemapController extends Controller
 {
     public function index()
     {
-        $frontend = rtrim(config('app.frontend_url', env('FRONTEND_URL')), '/');
+        $frontend = rtrim(config('app.frontend_url'), '/');
 
-        $products = Product::where('status', 1)
+        $products = Product::query()
+            ->where('status', 1)
             ->select('slug', 'updated_at')
-            ->orderByDesc('updated_at')
+            ->latest('updated_at')
             ->get();
 
-        $categories = ProductCategory::where('status', 1)
+        $categories = ProductCategory::query()
+            ->where('status', 1)
             ->select('id', 'slug', 'updated_at')
-            ->orderByDesc('updated_at')
+            ->latest('updated_at')
             ->get();
 
-        $xml = new \XMLWriter();
-
+        $xml = new XMLWriter();
         $xml->openMemory();
         $xml->startDocument('1.0', 'UTF-8');
 
@@ -38,7 +38,7 @@ class SitemapController extends Controller
 
         // Home
         $xml->startElement('url');
-        $xml->writeElement('loc', $frontend . '/');
+        $xml->writeElement('loc', $frontend);
         $xml->writeElement('lastmod', now()->toAtomString());
         $xml->writeElement('changefreq', 'daily');
         $xml->writeElement('priority', '1.0');
@@ -49,11 +49,11 @@ class SitemapController extends Controller
             $xml->startElement('url');
             $xml->writeElement(
                 'loc',
-                $frontend . '/category/' . $category->slug . '/' . $category->id
+                "{$frontend}/category/{$category->slug}/{$category->id}"
             );
             $xml->writeElement(
                 'lastmod',
-                optional($category->updated_at)->toAtomString()
+                optional($category->updated_at)?->toAtomString() ?? now()->toAtomString()
             );
             $xml->writeElement('changefreq', 'weekly');
             $xml->writeElement('priority', '0.8');
@@ -65,11 +65,11 @@ class SitemapController extends Controller
             $xml->startElement('url');
             $xml->writeElement(
                 'loc',
-                $frontend . '/product-details/' . $product->slug
+                "{$frontend}/product-details/{$product->slug}"
             );
             $xml->writeElement(
                 'lastmod',
-                optional($product->updated_at)->toAtomString()
+                optional($product->updated_at)?->toAtomString() ?? now()->toAtomString()
             );
             $xml->writeElement('changefreq', 'weekly');
             $xml->writeElement('priority', '0.7');
@@ -79,7 +79,13 @@ class SitemapController extends Controller
         $xml->endElement();
         $xml->endDocument();
 
-        return response($xml->outputMemory(), 200)
-            ->header('Content-Type', 'application/xml; charset=UTF-8');
+        return response(
+            $xml->outputMemory(),
+            200,
+            [
+                'Content-Type' => 'application/xml; charset=UTF-8',
+                'Cache-Control' => 'public, max-age=3600',
+            ]
+        );
     }
 }

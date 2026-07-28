@@ -61,6 +61,8 @@ return [
 
     'frontend_url' => env('FRONTEND_URL'),
 
+    'domain' => env('SESSION_DOMAIN'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone
