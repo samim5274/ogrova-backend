@@ -43,4 +43,4 @@ Route::get('auth/facebook/callback', [SocialAuthController::class, 'loginWithFac
 Route::get('auth/google/callback', [SocialAuthController::class, 'loginWithGoogle']);
 
 // Route::get('login/github', [SocialAuthController::class, 'githubRedirect']);
-// Route::get('login/github/callback', [SocialAuthController::class, 'loginWithGithub']);
+Route::get('auth/github/callback', [SocialAuthController::class, 'loginWithGithub']);

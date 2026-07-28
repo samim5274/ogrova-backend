@@ -16,6 +16,12 @@ class SocialAuthController extends Controller
 {
     public function redirect($provider)
     {
+        if ($provider === 'github') {
+            return Socialite::driver('github')
+                ->scopes(['user:email'])
+                ->redirect();
+        }
+
         return Socialite::driver($provider)->redirect();
     }
 
@@ -95,7 +101,7 @@ class SocialAuthController extends Controller
     {
         try {
             $googleUser = Socialite::driver('google')->stateless()->user();
-            
+
             if (!$googleUser->getEmail()) {
                 return redirect(
                     env('FRONTEND_URL') .
@@ -153,26 +159,76 @@ class SocialAuthController extends Controller
     }
 
     // login with github
-
-    public function githubRedirect() {
-        return Socialite::driver('github')->redirect();
-    }
-
     public function loginWithGithub() {
-        $user = Socialite::driver('github')->stateless()->user();
-        $findUser = User::where('github_id', $user->id)->first();
-        if($findUser) {
-            Auth::login($findUser);
-            return redirect('/home');
-        } else {
-            $newUser = new User();
-            $newUser->name = $user->name;
-            $newUser->email = $user->email;
-            $newUser->github_id = $user->id;
-            $newUser->password = bcrypt('123456789');
-            $newUser->save();
-            Auth::login($newUser);
-            return redirect('/home');
+        try {
+            $githubUser = Socialite::driver('github')->stateless()->user();
+
+            if (!$githubUser->getEmail()) {
+                return redirect(
+                    env('FRONTEND_URL') .
+                    '/login?error=' . urlencode('GitHub account has no public email address.')
+                );
+            }
+
+            DB::beginTransaction();
+
+            // First check by github_id
+            $user = User::where('github_id', $githubUser->getId())->first();
+
+            if (!$user) {
+
+                // Check existing account by email
+                $user = User::where('email', $githubUser->getEmail())->first();
+
+                if ($user) {
+
+                    // Link GitHub account
+                    $user->github_id = $githubUser->getId();
+
+                    if (!$user->photo && $githubUser->getAvatar()) {
+                        $user->photo = $githubUser->getAvatar();
+                    }
+
+                    $user->save();
+
+                } else {
+
+                    // Create new user
+                    $user = User::create([
+                        'name'      => $githubUser->getName() ?: $githubUser->getNickname(),
+                        'email'     => $githubUser->getEmail(),
+                        'github_id' => $githubUser->getId(),
+                        'photo'     => $githubUser->getAvatar(),
+                        'password'  => bcrypt(Str::random(32)),
+                    ]);
+                }
+            }
+
+            Auth::login($user);
+
+            $token = $user->createToken('social-login')->plainTextToken;
+
+            DB::commit();
+
+            return redirect(
+                env('FRONTEND_URL') .
+                '/auth/social?token=' . urlencode($token)
+            );
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            Log::error('GitHub Login Error', [
+                'message' => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
+            ]);
+
+            return redirect(
+                env('FRONTEND_URL') .
+                '/login?error=' . urlencode('GitHub login failed. Please try again.')
+            );
         }
     }
 }
