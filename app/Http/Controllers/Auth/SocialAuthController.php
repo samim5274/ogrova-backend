@@ -3,45 +3,226 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use Laravel\Socialite\Facades\Socialite;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Hash;
+use Laravel\Socialite\Contracts\User as SocialUser;
 
 use App\Models\User;
 
 class SocialAuthController extends Controller
 {
-    public function redirect($provider)
+    private const PROVIDERS = [
+        'google' => [
+            'column' => 'google_id',
+            'scopes' => ['openid','profile','email'],
+        ],
+
+        'facebook' => [
+            'column' => 'facebook_id',
+            'scopes' => ['email'],
+        ],
+
+        'github' => [
+            'column' => 'github_id',
+            'scopes' => ['user:email'],
+        ],
+    ];
+
+    public function redirect(string $provider): RedirectResponse
     {
-        if ($provider === 'github') {
-            return Socialite::driver('github')
-                ->scopes(['user:email'])
-                ->redirect();
+        if (!array_key_exists($provider, self::PROVIDERS)) {
+            return $this->redirectError('Unsupported social login provider.');
         }
 
-        return Socialite::driver($provider)->redirect();
+        try {
+
+            $driver = Socialite::driver($provider)->stateless()
+                ->scopes(self::PROVIDERS[$provider]['scopes']);
+
+            return $driver->redirect();
+
+        } catch (\Throwable $e) {
+
+            Log::error('Social redirect failed.', [
+                'provider' => $provider,
+                'message'  => $e,
+            ]);
+
+            return $this->redirectError(
+                'Unable to connect to ' . ucfirst($provider) . '.'
+            );
+        }
+
     }
 
-    public function callback($provider)
+    public function callback(string $provider): RedirectResponse
     {
-        $socialUser = Socialite::driver($provider)->stateless()->user();
+        if (!array_key_exists($provider, self::PROVIDERS)) {
+            return $this->redirectError('Unsupported social login provider.');
+        }
 
-        // User Create / Login
+        try {
 
-        $user = User::updateOrCreate(
-            ['email' => $socialUser->getEmail()],
-            [
-                'name' => $socialUser->getName(),
-                'avatar' => $socialUser->getAvatar(),
-            ]
+            $socialUser = Socialite::driver($provider)
+                ->stateless()
+                ->user();
+
+            // if (blank($socialUser->getEmail())) {
+            //     return $this->redirectError(
+            //         ucfirst($provider) . ' account has no email address.'
+            //     );
+            // }
+
+            $user = DB::transaction(function () use ($provider, $socialUser) {
+
+                return $this->findOrCreateUser(
+                    $provider,
+                    $socialUser
+                );
+
+            });
+
+            return $this->loginAndRedirect($user);
+
+        } catch (\Throwable $e) {
+
+            Log::error('Social login failed.', [
+                'provider' => $provider,
+                'message'  => $e->getMessage(),
+                'file'     => $e->getFile(),
+                'line'     => $e->getLine(),
+            ]);
+
+            return $this->redirectError(
+                ucfirst($provider) . ' login failed. Please try again.'
+            );
+        }
+    }
+
+     /**
+     * Find existing user or create a new one.
+     */
+    private function findOrCreateUser(string $provider,  SocialUser $socialUser ): User {
+
+        $providerColumn = self::PROVIDERS[$provider]['column'];
+
+        // 1. Find by provider ID
+        $user = User::where($providerColumn, $socialUser->getId())->lockForUpdate()->first();
+
+        if ($user) {
+            return $this->updateExistingUser($user, $providerColumn, $socialUser);
+        }
+
+        // 2. Find by email
+       $email = $socialUser->getEmail();
+
+        if (!blank($email)) {
+
+            $user = User::where('email', $email)->lockForUpdate()->first();
+
+            if ($user) {
+
+                $user->{$providerColumn} = $socialUser->getId();
+
+                if (filled($socialUser->getAvatar()) && $user->photo !== $socialUser->getAvatar()) {
+                    $user->photo = $socialUser->getAvatar();
+                }
+
+                $user->save();
+
+                return $user;
+            }
+        }
+
+        // 3. Create new account
+        return $this->createUser(
+            $providerColumn,
+            $socialUser
         );
+    }
 
-        $token = $user->createToken('auth')->plainTextToken;
+    /**
+     * Create new user.
+     */
+    private function createUser( string $providerColumn, SocialUser $socialUser ): User
+    {
+        $email = $socialUser->getEmail();
 
-        return redirect(env('FRONTEND_URL')."/auth/social?token=".$token);
+        $name =
+            $socialUser->getName()
+            ?: $socialUser->getNickname()
+            ?: ($email
+                ? explode('@', $email)[0]
+                : ucfirst($providerColumn) . '_' . Str::random(8));
+
+        return User::create([
+            'name' => $name,
+            'email' => $email,
+            $providerColumn => $socialUser->getId(),
+            'photo' => $socialUser->getAvatar(),
+            'password' => Hash::make(Str::password(40)),
+            'email_verified_at' => $email ? now() : null,
+        ]);
+    }
+
+    /**
+     * Update existing linked user.
+     */
+    private function updateExistingUser(
+        User $user,
+        string $providerColumn,
+        SocialUser $socialUser
+    ): User {
+
+        $changed = false;
+
+        if (blank($user->{$providerColumn})) {
+            $user->{$providerColumn} = $socialUser->getId();
+            $changed = true;
+        }
+
+        if ( blank($user->photo) && filled($socialUser->getAvatar()) ) {
+            $user->photo = $socialUser->getAvatar();
+            $changed = true;
+        }
+
+        if (blank($user->name) && filled($socialUser->getName()) && $user->name !== $socialUser->getName()) {
+            $user->name = $socialUser->getName();
+            $changed = true;
+        }
+
+        if ($changed) {
+            $user->save();
+        }
+
+        return $user;
+    }
+
+    /**
+     * Login user and redirect frontend.
+     */
+    private function loginAndRedirect(User $user): RedirectResponse
+    {
+        $user->tokens()->delete();
+
+        $token = $user->createToken('social-login')->plainTextToken;
+
+        $frontend = rtrim(config('app.frontend_url'), '/');
+        // dd(config('app.frontend_url'));
+        return redirect( $frontend.'/auth/social?token='.urlencode($token) );
+    }
+
+    /**
+     * Redirect with error message.
+     */
+    private function redirectError(string $message): RedirectResponse
+    {
+        $frontend = rtrim(config('app.frontend_url'), '/');
+        return redirect(  $frontend . '/login?error=' . urlencode($message) );
     }
 
 
@@ -159,7 +340,8 @@ class SocialAuthController extends Controller
     }
 
     // login with github
-    public function loginWithGithub() {
+    public function loginWithGithub()
+    {
         try {
             $githubUser = Socialite::driver('github')->stateless()->user();
 
