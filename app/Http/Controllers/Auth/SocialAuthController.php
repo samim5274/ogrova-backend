@@ -47,14 +47,19 @@ class SocialAuthController extends Controller
 
         } catch (\Throwable $e) {
 
-            Log::error('Social redirect failed.', [
+            Log::error('Social login failed.', [
                 'provider' => $provider,
-                'message'  => $e,
+                'message'  => $e->getMessage(),
+                'file'     => $e->getFile(),
+                'line'     => $e->getLine(),
+                'trace'    => $e->getTraceAsString(),
             ]);
 
-            return $this->redirectError(
-                'Unable to connect to ' . ucfirst($provider) . '.'
-            );
+            return $this->redirectError($e->getMessage()); // only debugging-এর
+
+            // return $this->redirectError(
+            //     'Unable to connect to ' . ucfirst($provider) . '.'
+            // );
         }
 
     }
