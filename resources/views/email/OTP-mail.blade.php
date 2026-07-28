@@ -60,7 +60,7 @@
                     <!-- Footer -->
                     <tr>
                         <td style="background:#f8f9fb; text-align:center; padding:15px; font-size:12px; color:#888;">
-                            © {{ date('Y') }} Your Company. All rights reserved.
+                            © {{ date('Y') }} OGROVA | Bangladesh's Smart Online Marketplace. All rights reserved.
                         </td>
                     </tr>
 
