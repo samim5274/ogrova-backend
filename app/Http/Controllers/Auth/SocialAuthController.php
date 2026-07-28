@@ -100,11 +100,14 @@ class SocialAuthController extends Controller
                 'message'  => $e->getMessage(),
                 'file'     => $e->getFile(),
                 'line'     => $e->getLine(),
+                'trace'    => $e->getTraceAsString(),
             ]);
 
-            return $this->redirectError(
-                ucfirst($provider) . ' login failed. Please try again.'
-            );
+            return $this->redirectError($e->getMessage()); // only for debugs
+
+            // return $this->redirectError(
+            //     ucfirst($provider) . ' login failed. Please try again.'
+            // );
         }
     }
 
