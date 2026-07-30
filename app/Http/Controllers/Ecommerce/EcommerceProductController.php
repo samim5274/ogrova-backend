@@ -41,6 +41,19 @@ class EcommerceProductController extends Controller
 
             $products = Cache::remember("home:all:v1:page:$page",now()->addMinutes(30), function () {
                 return Product::query()
+                    ->select([
+                        'id',
+                        'category_id',
+                        'subcategory_id',
+                        'brand_id',
+                        'name',
+                        'slug',
+                        'price',
+                        'discount',
+                        'point',
+                        'approval_status',
+                        'is_active'
+                    ])
                     ->with([
                         'category:id,name,slug',
                         'subcategory:id,name',
@@ -51,7 +64,7 @@ class EcommerceProductController extends Controller
                     ->withCount('ratings')
                     ->where('is_active', true)
                     ->where('approval_status', true)
-                    ->inRandomOrder()
+                    ->latest('id')
                     ->paginate(52)
                     ->through(function ($product) {
 
@@ -99,7 +112,7 @@ class EcommerceProductController extends Controller
                 ->where('category_id', $category->id)
                 ->where('is_active', 1)
                 ->where('approval_status', 1)
-                ->inRandomOrder()
+                ->latest('id')
                 ->take(10)
                 ->get();
 
@@ -358,7 +371,7 @@ class EcommerceProductController extends Controller
                 'is_active' => 1,
                 'approval_status' => 1,
             ])
-            ->inRandomOrder()
+            ->latest('id')
             ->paginate(20);
 
             return response()->json([
