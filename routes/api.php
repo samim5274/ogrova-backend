@@ -210,6 +210,7 @@ use App\Http\Controllers\Ecommerce\SearchController;
 Route::prefix('public')->group(function () {
 
     Route::get('/products', [EcommerceProductController::class, 'index']);
+    Route::get('/products/category/group', [EcommerceProductController::class, 'categoryGroup']);
 
     Route::get('/get-division', [EcommerceProductController::class, 'getDivision']); // Get Division
     Route::get('/get-district', [EcommerceProductController::class, 'getDistrict']); // Get District

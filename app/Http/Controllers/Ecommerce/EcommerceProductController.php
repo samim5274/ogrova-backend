@@ -33,7 +33,55 @@ use App\Models\OrderPayment;
 
 class EcommerceProductController extends Controller
 {
-    public function index(){
+    public function index(Request $request)
+    {
+        try{
+            // Cache::forget('home:all:v1'); // Product create/update/delete cache forget
+            $page = $request->get('page', 1);
+
+            $products = Cache::remember("home:all:v1:page:$page",now()->addMinutes(30), function () {
+                return Product::query()
+                    ->with([
+                        'category:id,name,slug',
+                        'subcategory:id,name',
+                        'brand:id,name',
+                        'images:id,product_id,image_path,is_primary',
+                    ])
+                    ->withAvg('ratings', 'rating')
+                    ->withCount('ratings')
+                    ->where('is_active', true)
+                    ->where('approval_status', true)
+                    ->inRandomOrder()
+                    ->paginate(52)
+                    ->through(function ($product) {
+
+                        $product->images->transform(function ($image) {
+                            $image->url = asset('storage/'.$image->image_path);
+                            return $image;
+                        });
+
+                        return $product;
+                    });
+
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Products fetched successfully.',
+                'data' => $products
+            ], 200);
+
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to fetch products.',
+            ], 500);
+        }
+    }
+
+    public function categoryGroup()
+    {
         try{
             $categories = ProductCategory::where('is_active', 1)
                 ->select('id', 'name', 'slug')
