@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Auth\SocialAuthController;
+use App\Http\Controllers\Auth\SitemapController;
 
 Route::get('/', function () {
     return redirect('https://ogrova.mercuviax.com/');
@@ -42,3 +43,7 @@ Route::get('/auth/{provider}/callback', [SocialAuthController::class,'callback']
 // Route::get('auth/facebook/callback', [SocialAuthController::class, 'loginWithFacebook']);
 // Route::get('auth/google/callback', [SocialAuthController::class, 'loginWithGoogle']);
 // Route::get('auth/github/callback', [SocialAuthController::class, 'loginWithGithub']);
+
+
+// site map
+Route::get('/sitemap.xml', [SitemapController::class, 'index']);

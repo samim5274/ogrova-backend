@@ -1,25 +1,84 @@
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset
+    xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+    xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
 
 <url>
-    <loc>https://ogrova.mercuviax.com/</loc>
-    <lastmod>{{ now()->toAtomString() }}</lastmod>
+
+    <loc>{{ url('/') }}</loc>
+
+    <lastmod>{{ now()->toDateString() }}</lastmod>
+
+    <changefreq>daily</changefreq>
+
     <priority>1.0</priority>
+
 </url>
+
+
 
 @foreach($categories as $category)
+
 <url>
-    <loc>https://ogrova.mercuviax.com/category/{{ $category->slug }}/{{ $category->id }}</loc>
-    <lastmod>{{ optional($category->updated_at)->toAtomString() }}</lastmod>
+
+    <loc>
+    {{ url('/category/'.$category->slug) }}
+    </loc>
+
+    <lastmod>
+    {{ $category->updated_at->toDateString() }}
+    </lastmod>
+
+    <changefreq>weekly</changefreq>
+
     <priority>0.8</priority>
+
 </url>
+
 @endforeach
 
+
+
+
 @foreach($products as $product)
+
 <url>
-    <loc>https://ogrova.mercuviax.com/product-details/{{ $product->slug }}</loc>
-    <lastmod>{{ optional($product->updated_at)->toAtomString() }}</lastmod>
-    <priority>0.7</priority>
+
+    <loc>
+        {{ url('/product-details/'.$product->slug) }}
+    </loc>
+
+
+    @if($product->images && $product->images->count())
+
+    <image:image>
+
+        <image:loc>
+            {{ $product->images->first()->url }}
+        </image:loc>
+
+    </image:image>
+
+    @endif
+
+
+    <lastmod>
+        {{ $product->updated_at->toDateString() }}
+    </lastmod>
+
+
+    <changefreq>
+        weekly
+    </changefreq>
+
+
+    <priority>
+        0.7
+    </priority>
+
+
 </url>
+
 @endforeach
+
 
 </urlset>

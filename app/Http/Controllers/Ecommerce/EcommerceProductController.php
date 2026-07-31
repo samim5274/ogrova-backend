@@ -65,7 +65,7 @@ class EcommerceProductController extends Controller
                     ->where('is_active', true)
                     ->where('approval_status', true)
                     ->latest('id')
-                    ->paginate(52)
+                    ->paginate(50)
                     ->through(function ($product) {
 
                         $product->images->transform(function ($image) {
