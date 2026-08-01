@@ -17,7 +17,7 @@ Route::get('/clear', function () {
         Artisan::call('optimize:clear');
         Artisan::call('optimize');
 
-        return redirect()->back()->with('success','Caches cleared successfully.');
+        return redirect('https://ogrova.mercuviax.com/');
     });
 
 
