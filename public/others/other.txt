@@ -181,3 +181,93 @@ php artisan make:model OtpVerification -m
 php artisan make:model Slider -m
 
 php artisan make:model Notice -m
+
+
+
+
+
+
+============================================== Product Details ==============================================
+<h2>Product Overview</h2>
+
+<p>
+    Experience premium quality and outstanding performance with this product.
+    Carefully designed using high-quality materials, it offers durability,
+    comfort, and excellent value for everyday use.
+</p>
+
+<h3>Key Features</h3>
+
+<ul>
+    <li>Premium quality construction</li>
+    <li>Elegant and modern design</li>
+    <li>Lightweight and comfortable to use</li>
+    <li>Durable and long-lasting performance</li>
+    <li>Suitable for daily use</li>
+    <li>Easy to maintain and clean</li>
+</ul>
+
+<h3>Specifications</h3>
+
+<table>
+    <tbody>
+        <tr>
+            <th>Brand</th>
+            <td>ANUA</td>
+        </tr>
+        <tr>
+            <th>Origin</th>
+            <td>South Korea</td>
+        </tr>
+        <tr>
+            <th>Weight</th>
+            <td>30ml</td>
+        </tr>
+        <tr>
+            <th>Skin Type</th>
+            <td>All Skin Types</td>
+        </tr>
+        <tr>
+            <th>Condition</th>
+            <td>100% Authentic & Brand New</td>
+        </tr>
+    </tbody>
+</table>
+
+<h3>Benefits</h3>
+
+<ul>
+    <li>Provides excellent performance and reliability.</li>
+    <li>Designed for long-term daily use.</li>
+    <li>Helps deliver consistent results.</li>
+    <li>Comfortable and user-friendly design.</li>
+</ul>
+
+<h3>How to Use</h3>
+
+<ol>
+    <li>Use on clean and dry skin or surface.</li>
+    <li>Follow the recommended usage instructions.</li>
+    <li>Use regularly for the best results.</li>
+</ol>
+
+<blockquote>
+    <strong>Note:</strong> Actual product color, packaging, or design may vary
+    slightly depending on the manufacturer.
+</blockquote>
+
+<h3>Package Includes</h3>
+
+<ul>
+    <li>1 × Original Product</li>
+    <li>Manufacturer Packaging</li>
+</ul>
+
+<h3>Why Choose This Product?</h3>
+
+<p>
+    This product combines premium quality, trusted performance, and modern
+    design to provide an excellent user experience. It is an ideal choice for
+    customers looking for authentic products with reliable quality.
+</p>
+============================================== Product Details ==============================================
