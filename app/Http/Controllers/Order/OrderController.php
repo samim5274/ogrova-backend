@@ -341,7 +341,7 @@ class OrderController extends Controller
                     ]);
                 }
 
-                $deliveryCharge = round($shippingZone->delivery_charge * $cartItems->count(), 2);
+                $deliveryCharge = round($shippingZone->delivery_charge, 2);
                 $codCharge = $validated['payment_method'] === 'cod' ? round($shippingZone->cod_charge, 2) : 0;
 
                 $amount   = round($cartItems->sum(fn ($item) => $item->price * $item->quantity), 2);
