@@ -182,4 +182,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(OrderPayment::class, 'verified_by');
     }
+
+    public function expense()
+    {
+        return $this->hasMany(User::class, 'user_id', 'id');
+    }
 }

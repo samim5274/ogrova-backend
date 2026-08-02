@@ -431,6 +431,34 @@ Route::prefix('slider')->group(function () {
 
 
 
+
+use App\Http\Controllers\Expense\ExpenseController;
+Route::middleware('auth:sanctum')->group(function () {
+    Route::prefix('expense')->group(function () {
+        Route::get('/', [ExpenseController::class, 'index']);
+        Route::get('/get-subcategory/{id}', [ExpenseController::class, 'getSubCategory']);
+        Route::post('/create', [ExpenseController::class, 'store']);
+        Route::get('/details/{id}', [ExpenseController::class, 'detailsShow']);
+        Route::get('/print/{id}', [ExpenseController::class, 'print']);
+        Route::delete('/delete/{id}', [ExpenseController::class, 'delete']);
+        // Expense setting routes
+        Route::get('/setting', [ExpenseController::class, 'setting']);
+        Route::post('/category', [ExpenseController::class, 'storeCategory']);
+        Route::post('/subcategory', [ExpenseController::class, 'storeSubCategory']);
+        Route::delete('/category/{id}', [ExpenseController::class, 'deleteCategory']);
+        Route::put('/edit/category/{id}', [ExpenseController::class, 'editCategory']);
+        Route::delete('/subcategory/{id}', [ExpenseController::class, 'deleteSubCategory']);
+        Route::put('/edit/subcategory/{id}', [ExpenseController::class, 'editSubCategory']);
+    });
+});
+
+
+
+
+
+
+
+
 // ======================
 // Super Admin Routes
 // ======================
