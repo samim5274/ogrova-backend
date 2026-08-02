@@ -35,9 +35,6 @@ Route::prefix('register')->group(function () {
     Route::post('/create-user', [AuthController::class, 'register']);
 });
 
-// Route::get('/auth/google/redirect', [SocialAuthController::class, 'redirectToGoogle']);
-// Route::get('/auth/google/callback', [SocialAuthController::class, 'handleGoogleCallback']);
-
 
 
 
@@ -184,14 +181,38 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::post('/store', [CustomerController::class, 'storeOrder']);
         });
 
-        Route::prefix('dashboard')->group(function() {
-            Route::get('/', [CustomerController::class, 'dashboard']);
-        });
+    });
+
+    Route::prefix('dashboard')->group(function() {
+        Route::get('/', [DashboardController::class, 'dashboard']);
     });
 });
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ======================
+// dashboard Routes
+// ======================
+use App\Http\Controllers\Dashboard\DashboardController;
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::prefix('dashboard')->group(function() {
+        Route::get('/', [DashboardController::class, 'dashboard']);
+    });
+});
 
 
 
