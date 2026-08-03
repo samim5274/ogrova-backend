@@ -150,6 +150,17 @@ class OrderPayment extends Model
 
     ];
 
+    protected static function booted(): void
+    {
+        static::saved(function (OrderPayment $payment) {
+            $payment->order?->recalculatePaymentTotals();
+        });
+
+        static::deleted(function (OrderPayment $payment) {
+            $payment->order?->recalculatePaymentTotals();
+        });
+    }
+
     /** Payment methods settled through a digital/online gateway. */
     public const ONLINE_METHODS = [
         self::METHOD_MOBILE_BANKING,

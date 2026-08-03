@@ -177,6 +177,33 @@ class Order extends Model
         self::STATUS_RETURNED,
     ];
 
+    public function recalculatePaymentTotals(): void
+    {
+        $paid = $this->payments()
+            ->where('status', OrderPayment::STATUS_SUCCESS)
+            ->get()
+            ->sum(function (OrderPayment $payment) {
+                return $payment->isRefund()
+                    ? -1 * (float) $payment->amount
+                    : (float) $payment->amount;
+            });
+
+        $paid = max($paid, 0);
+        $due  = max((float) $this->payable_amount - $paid, 0);
+
+        $paymentStatus = match (true) {
+            $paid <= 0 => self::PAYMENT_PENDING,
+            $due <= 0  => self::PAYMENT_PAID,
+            default    => self::PAYMENT_PARTIAL,
+        };
+
+        $this->forceFill([
+            'paid_amount'    => $paid,
+            'due_amount'     => $due,
+            'payment_status' => $paymentStatus,
+        ])->saveQuietly();
+    }
+
     // Auto slug generate
     protected static function booted(): void
     {

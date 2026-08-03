@@ -443,6 +443,7 @@ class OrderController extends Controller
                     // 'cod_charge'             => $codCharge,
                     'discount'                  => $totalDiscount,
                     'payable_amount'            => $payableAmount,
+                    'due_amount'                => $payableAmount,
                     'currency'                  => Order::CURRENCY_BDT,
                     'point'                     => $point,
 
