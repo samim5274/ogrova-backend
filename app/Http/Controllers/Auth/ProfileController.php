@@ -28,7 +28,7 @@ class ProfileController extends Controller
 
         $data = $request->validate([
             'name'              => ['required','string','max:255'],
-            'email'             => ['required','email','max:255','unique:users,email'],
+            'email'             => ['required','email','max:255'],
             'phone'             => ['nullable','string','max:30', Rule::unique('users','phone')->ignore($user->id)],
             'dob'               => ['nullable','date'],
             'gender'            => ['nullable','in:male,female,other'],

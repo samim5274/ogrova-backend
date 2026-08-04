@@ -3,34 +3,6 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-// ========================================
-// Controllers
-// ========================================
-use App\Http\Controllers\Auth\AuthController;
-use App\Http\Controllers\Auth\ProfileController;
-
-use App\Http\Controllers\Product\ProductController;
-
-use App\Http\Controllers\Customer\CustomerController;
-
-use App\Http\Controllers\Dashboard\DashboardController;
-
-use App\Http\Controllers\Ecommerce\EcommerceProductController;
-use App\Http\Controllers\Ecommerce\SearchController;
-use App\Http\Controllers\Ecommerce\CartController;
-use App\Http\Controllers\Ecommerce\AdminCartController;
-use App\Http\Controllers\Ecommerce\RatingController;
-use App\Http\Controllers\Ecommerce\SliderController;
-
-use App\Http\Controllers\Order\OrderController;
-use App\Http\Controllers\Order\CouponController;
-
-use App\Http\Controllers\Notice\NoticeController;
-
-use App\Http\Controllers\Expense\ExpenseController;
-
-use App\Http\Controllers\Admin\AdminController;
-
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
@@ -38,6 +10,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 // ======================
 // Auth Routes
 // ======================
+use App\Http\Controllers\Auth\AuthController;
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/register', [AuthController::class, 'register']);
@@ -84,11 +57,28 @@ Route::prefix('register')->group(function () {
 // ======================
 // Profile Routes
 // ======================
+use App\Http\Controllers\Auth\ProfileController;
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('profile')->group(function () {
-        Route::put('/customer', [ProfileController::class, 'update']);
+        Route::put('/', [ProfileController::class, 'update']);
         Route::patch('/password', [ProfileController::class, 'changePassword']);
     });
+
+    Route::prefix('users')->group(function () {
+        Route::get('/', [ProfileController::class, 'getUsers']);
+        Route::get('/get-all', [ProfileController::class, 'getAllUsers']);
+        Route::get('/products', [ProfileController::class, 'getProducts']);
+        Route::get('/root', [ProfileController::class, 'getRootUsers']);
+        Route::post('/create', [ProfileController::class, 'createUser']);
+        Route::post('/assign-tree', [ProfileController::class, 'assignTree']);
+        Route::get('/get-ranking-users', [ProfileController::class, 'getRankingUsers']);
+    });
+});
+
+// get tree user
+Route::middleware(['auth:sanctum'])->group(function (){
+    Route::get('/tree-user-log-root', [ProfileController::class, 'treeUserLogRoot']);
+    Route::get('/tree-user', [ProfileController::class, 'treeUser']);
 });
 
 
@@ -109,6 +99,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 // ======================
 // Product Routes
 // ======================
+use App\Http\Controllers\Product\ProductController;
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('products')->group(function () {
         Route::post('/create', [ProductController::class, 'store']);
@@ -160,6 +151,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 // ======================
 // Customer Routes
 // ======================
+use App\Http\Controllers\Customer\CustomerController;
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('customer')->group(function (){
 
@@ -172,6 +164,16 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::prefix('profile')->group(function () {
             Route::put('/', [CustomerController::class, 'update']);
             Route::put('/password', [CustomerController::class, 'changePassword']);
+        });
+
+        Route::prefix('users')->group(function () {
+            Route::get('/', [CustomerController::class, 'getUsers']);
+            Route::get('/auth', [CustomerController::class, 'getAuthUser']);
+            Route::get('/root', [CustomerController::class, 'getRootUsers']);
+            Route::post('/create', [CustomerController::class, 'createUser']);
+            Route::get('/edit/{id}', [CustomerController::class, 'editUser']);
+            Route::post('/update/{id}', [CustomerController::class, 'updateUser']);
+            Route::post('/assign-tree', [CustomerController::class, 'assignTree']);
         });
 
         Route::prefix('orders')->group(function () {
@@ -205,6 +207,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 // ======================
 // dashboard Routes
 // ======================
+use App\Http\Controllers\Dashboard\DashboardController;
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('dashboard')->group(function() {
         Route::get('/', [DashboardController::class, 'dashboard']);
@@ -223,28 +226,23 @@ Route::middleware(['auth:sanctum'])->group(function () {
 // ======================
 // E-commerce Routes
 // ======================
+use App\Http\Controllers\Ecommerce\EcommerceProductController;
+use App\Http\Controllers\Ecommerce\SearchController;
 Route::prefix('public')->group(function () {
 
-    // Products
     Route::get('/products', [EcommerceProductController::class, 'index']);
-    Route::get('/product/{slug}', [ProductController::class, 'show']);
+    Route::get('/products/category/group', [EcommerceProductController::class, 'categoryGroup']);
 
-    // Categories
+    Route::get('/get-division', [EcommerceProductController::class, 'getDivision']); // Get Division
+    Route::get('/get-district', [EcommerceProductController::class, 'getDistrict']); // Get District
+    Route::get('/get-upazila', [EcommerceProductController::class, 'getUpazila']); // Get Upazila
+    Route::get('/get-police-station', [EcommerceProductController::class, 'getPoliceStation']); // Get police station
+
     Route::get('/get-categories', [ProductController::class, 'getCategory']);
     Route::get('/get-subcategories', [ProductController::class, 'getSubCategory']);
     Route::get('/get-brands', [ProductController::class, 'getBrand']);
-
-    // Category Products
+    Route::get('/product/{slug}', [ProductController::class, 'show'])->where('slug', '[a-zA-Z0-9\-]+');
     Route::get('/category-products/{id}', [EcommerceProductController::class, 'getCategoryProducts']);
-    Route::get('/products/category/group', [EcommerceProductController::class, 'categoryGroup']);
-
-    // Location
-    Route::get('/get-division', [EcommerceProductController::class, 'getDivision']);
-    Route::get('/get-district', [EcommerceProductController::class, 'getDistrict']);
-    Route::get('/get-upazila', [EcommerceProductController::class, 'getUpazila']);
-    Route::get('/get-police-station', [EcommerceProductController::class, 'getPoliceStation']);
-
-    // Other
     Route::get('/{user_id}/details', [EcommerceProductController::class, 'otherDetails']);
 });
 
@@ -256,6 +254,8 @@ Route::prefix('search')->group(function () {
     Route::get('/suggestions', [SearchController::class, 'suggestions']);
 });
 
+use App\Http\Controllers\Ecommerce\CartController;
+use App\Http\Controllers\Ecommerce\AdminCartController;
 Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('admin/cart')->group(function () {
         Route::get('/', [AdminCartController::class, 'index']);
@@ -263,9 +263,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/add-to-cart', [AdminCartController::class, 'adminAddToCart']);
         Route::post('/qty-update/{reg}/{product_id}/{variant_id}', [AdminCartController::class, 'updateQty']);
         Route::post('/remove-to-cart/{cart_id}/{reg}/{product_id}/{variant_id}', [AdminCartController::class, 'removeToCart']);
+
         Route::post('confirm/order/{reg}', [AdminCartController::class, 'confirmOrder']);
     });
-
     Route::prefix('cart')->group(function () {
         Route::get('/', [CartController::class, 'index']);
         Route::get('/{reg}', [CartController::class, 'getCartItem']);
@@ -275,9 +275,20 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 });
 
+use App\Http\Controllers\Payment\AccountController;
+Route::middleware('auth:sanctum')->group(function () {
+    Route::prefix('account')->group(function () {
+        Route::get('/', [AccountController::class, 'index']);
+        Route::get('/admin/statement', [AccountController::class, 'adminStatement']);
+        Route::get('/admin/star/club', [AccountController::class, 'StarClubStatement']);
+        Route::get('/admin/dynamic/club', [AccountController::class, 'DynamicClubStatement']);
+    });
+});
+
 // =============================
 // Product Ratting
 // =============================
+use App\Http\Controllers\Ecommerce\RatingController;
 
 Route::get('/product/ratings/{product_id}', [RatingController::class, 'getProductRating']);
 
@@ -298,6 +309,8 @@ Route::middleware('auth:sanctum')->group(function () {
 // =============================
 // E-commerce Admin order Routes
 // =============================
+use App\Http\Controllers\Order\OrderController;
+use App\Http\Controllers\Order\CouponController;
 Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('orders')->group(function () {
         Route::get('/', [OrderController::class, 'index']);
@@ -341,9 +354,37 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
 
+
+
+
+
+
+
+
+// ======================
+// Finance Routes
+// ======================
+use App\Http\Controllers\Finance\WalletController;
+Route::middleware('auth:sanctum')->group(function () {
+    Route::prefix('finance')->group(function () {
+        Route::get('/', [ WalletController::class, 'index']);
+        Route::get('/transaction', [ WalletController::class, 'transaction']);
+        Route::get('/admin/transaction', [ WalletController::class, 'processingTransaction']);
+        Route::post('/withdraw/store', [ WalletController::class, 'store']);
+        Route::post('/withdraw/verify-otp', [ WalletController::class, 'verifyOtp']);
+        Route::delete('/transaction/{id}', [ WalletController::class, 'transactionDelete']);
+        Route::get('/transaction-details/{transaction_id}/{user_id}', [WalletController::class, 'getTransaction']);
+        Route::put('/update-status/{id}', [WalletController::class, 'updateStatus']);
+    });
+});
+
+
+
+
 // ======================
 // Notice Routes
 // ======================
+use App\Http\Controllers\Notice\NoticeController;
 Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('notice')->group(function () {
         Route::get('/', [NoticeController::class, 'index']);
@@ -369,6 +410,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // ======================
 // Slider Routes
 // ======================
+use App\Http\Controllers\Ecommerce\SliderController;
 Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('slider')->group(function () {
         Route::get('/', [SliderController::class, 'index']);
@@ -390,6 +432,7 @@ Route::prefix('slider')->group(function () {
 
 
 
+use App\Http\Controllers\Expense\ExpenseController;
 Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('expense')->group(function () {
         Route::get('/', [ExpenseController::class, 'index']);
@@ -419,6 +462,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // ======================
 // Super Admin Routes
 // ======================
+use App\Http\Controllers\Admin\AdminController;
 Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('super-admin')->group(function () {
         Route::get('/', [ AdminController::class, 'index']);
