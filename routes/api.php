@@ -29,9 +29,9 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 Route::prefix('register')->group(function () {
-    Route::get('/get-refer/{referCode}', [AuthController::class, 'getReferUser']);
-    Route::get('/products', [AuthController::class, 'getProducts']);
-    Route::get('/root-users', [AuthController::class, 'getUsers']);
+    // Route::get('/get-refer/{referCode}', [AuthController::class, 'getReferUser']);
+    // Route::get('/products', [AuthController::class, 'getProducts']);
+    // Route::get('/root-users', [AuthController::class, 'getUsers']);
     Route::post('/create-user', [AuthController::class, 'register']);
 });
 
@@ -61,7 +61,7 @@ use App\Http\Controllers\Auth\ProfileController;
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('profile')->group(function () {
         Route::put('/', [ProfileController::class, 'update']);
-        Route::put('/password', [ProfileController::class, 'changePassword']);
+        Route::patch('/password', [ProfileController::class, 'changePassword']);
     });
 
     Route::prefix('users')->group(function () {
