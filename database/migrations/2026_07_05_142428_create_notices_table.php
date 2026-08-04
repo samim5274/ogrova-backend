@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('attachment')->nullable();
             $table->string('notice_type')->default('General'); // General, Urgent, Holiday, Academic
             $table->boolean('is_active')->default(true);
+            $table->boolean('is_read')->default(false);
 
             $table->foreign('user_id')->references('id')->on('users')->onDelete('restrict');
             $table->timestamps();

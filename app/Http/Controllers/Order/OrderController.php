@@ -13,6 +13,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Carbon;
 
 use App\Http\Requests\ConfirmOrderRequest;
 use App\Http\Requests\ConfirmPaymentRequest;
@@ -33,6 +34,7 @@ use App\Models\Transaction;
 use App\Models\OrderPayment;
 use App\Models\Coupon;
 use App\Models\CouponUsage;
+use App\Models\Notice;
 
 class OrderController extends Controller
 {
@@ -562,8 +564,151 @@ class OrderController extends Controller
                     $coupon->increment('used_count');
                 }
 
-                // mailtrap: cf7f17c9f64fdf9c521cd2b5d08e1323
-                // Mail::to($user->email)->send(new OrderMail($order));
+                $description = "
+                    <h3>🛒 Order Information</h3>
+
+                    <table style='width:100%;border-collapse:collapse' border='1' cellpadding='8'>
+                        <tr>
+                            <th align='left'>Invoice No</th>
+                            <td>{$order->reg}</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Order Date</th>
+                            <td>{$order->date}</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Customer ID</th>
+                            <td>{$order->user->name}</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Customer</th>
+                            <td>{$order->contact_name}</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Mobile</th>
+                            <td>{$order->contact_number}</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Email</th>
+                            <td>".($order->contact_email ?: 'N/A')."</td>
+                        </tr>
+                    </table>
+
+                    <br>
+
+                    <h3>💳 Payment Information</h3>
+
+                    <table style='width:100%;border-collapse:collapse' border='1' cellpadding='8'>
+                        <tr>
+                            <th align='left'>Order Amount</th>
+                            <td>৳".number_format($order->amount,2)." {$order->currency}</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Coupon</th>
+                            <td>".($order->coupon_code ?: 'N/A')."</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Coupon Discount</th>
+                            <td>৳".number_format($order->coupon_discount,2)." {$order->currency}</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Shipping Charge</th>
+                            <td>৳".number_format($order->shipping_charge,2)." {$order->currency}</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Tax</th>
+                            <td>৳".number_format($order->tax,2)." {$order->currency}</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Additional Discount</th>
+                            <td>৳".number_format($order->discount,2)." {$order->currency}</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Payable Amount</th>
+                            <td><strong>৳".number_format($order->payable_amount,2)." {$order->currency}</strong></td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Paid Amount</th>
+                            <td>৳".number_format($order->paid_amount,2)." {$order->currency}</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Due Amount</th>
+                            <td>৳".number_format($order->due_amount,2)." {$order->currency}</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Payment Method</th>
+                            <td>".ucfirst($order->payment_method)."</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Payment Status</th>
+                            <td>".ucfirst($order->payment_status)."</td>
+                        </tr>
+                    </table>
+
+                    <br>
+
+                    <h3>📦 Delivery Information</h3>
+
+                    <table style='width:100%;border-collapse:collapse' border='1' cellpadding='8'>
+                        <tr>
+                            <th align='left'>Order Status</th>
+                            <td>".ucfirst($order->status)."</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Shipping Address</th>
+                            <td>{$order->shipping_address}</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Division ID</th>
+                            <td>".($order->division->name ?? 'N/A')."</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>District ID</th>
+                            <td>".($order->district->name ?? 'N/A')."</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Upazila ID</th>
+                            <td>".($order->upazila->name ?? 'N/A')."</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Police Station ID</th>
+                            <td>".($order->policeStation->name ?? 'N/A')."</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Postal Code</th>
+                            <td>".($order->postal_code ?? 'N/A')."</td>
+                        </tr>
+                    </table>
+
+                    <br>
+
+                    <h3>🎁 Additional Information</h3>
+
+                    <table style='width:100%;border-collapse:collapse' border='1' cellpadding='8'>
+                        <tr>
+                            <th align='left'>Loyalty Points</th>
+                            <td>".($order->point ?? 0)."</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Referral Bonus Paid</th>
+                            <td>".($order->referral_bonus_paid ? 'Yes' : 'No')."</td>
+                        </tr>
+                        <tr>
+                            <th align='left'>Remarks</th>
+                            <td>".($order->remarks ?: 'N/A')."</td>
+                        </tr>
+                    </table>
+                ";
+
+                Notice::create([
+                    'title'             => 'Order Details - '. $order->reg ,
+                    'description'       => $description,
+                    'publish_date'      => Carbon::now(),
+                    'user_id'           => $user->id,
+                    'notice_type'       => 'Order_Details',
+                ]);
+
+                Mail::to($user->email)->send(new OrderMail($order));
 
                 return response()->json([
                     'success' => true,
@@ -835,9 +980,40 @@ class OrderController extends Controller
                     }
                 }
 
+                Notice::create([
+                    'title'        => "Order Delivered - {$order->reg}",
+                    'description'  => 'Your order has been delivered successfully. Please share your valuable review and feedback. Thank you for choosing us.',
+                    'publish_date' => Carbon::now(),
+                    'user_id'      => $order->user_id,
+                    'notice_type'  => 'Order_Update',
+                ]);
+
                 // referral bonus always safe guarded inside service
                 $this->pointService->referralBonus($user, $order->reg, (int)$order->point);
             }
+
+            $statusTitle = "Order {$currentStatus} - {$order->reg}";
+
+            $statusDescription = match ($statusKey) {
+                'confirmed'         => "Your order has been confirmed and will be processed shortly.",
+                'processing'        => "Your order is currently being processed.",
+                'picked'            => "Your order has been picked and is being prepared for shipment.",
+                'shipped'           => "Your order has been shipped and is on its way.",
+                'out for delivery'  => "Your order is out for delivery and will arrive soon.",
+                'delivered'         => "Your order has been delivered successfully. Thank you for shopping with us.",
+                'cancelled'         => "Your order has been cancelled.",
+                'returned'          => "Your order has been returned successfully.",
+                'failed'            => "Unfortunately, your order could not be completed.",
+                default             => "Your order status has been updated to {$currentStatus}.",
+            };
+
+            Notice::create([
+                'title'        => $statusTitle,
+                'description'  => $statusDescription,
+                'publish_date' => Carbon::now(),
+                'user_id'      => $order->user_id,
+                'notice_type'  => 'Order_Update',
+            ]);
 
             DB::commit();
 

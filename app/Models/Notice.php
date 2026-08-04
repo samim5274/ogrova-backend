@@ -12,12 +12,12 @@ class Notice extends Model
     protected $fillable = [
         'title',
         'description',
-        'top_title',
         'publish_date',
         'user_id',
         'attachment',
         'notice_type',
         'is_active',
+        'is_read',
     ];
 
     public function user()

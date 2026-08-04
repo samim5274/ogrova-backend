@@ -47,10 +47,19 @@ class NoticeController extends Controller
 
     public function userNotice()
     {
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized user',
+            ], 401);
+        }
+
         try {
             $notice = Notice::with('user')
                 ->whereDate('publish_date', '<=', Carbon::today())
                 ->where('is_active', true)
+                ->where('user_id', $user->id)
                 ->orderBy('id', 'desc')
                 ->get();
 
@@ -177,6 +186,10 @@ class NoticeController extends Controller
                     'message' => 'Notice not found.',
                 ], 404);
             }
+
+            $notice->update([
+                'is_read' => true,
+            ]);
 
             return response()->json([
                 'success' => true,
