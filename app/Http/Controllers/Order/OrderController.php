@@ -822,6 +822,8 @@ class OrderController extends Controller
 
     public function getOrderDetails($reg){
         try{
+            $user = auth()->user();
+
             $order = Order::with([
                     'user',
                     'payment',
@@ -855,6 +857,7 @@ class OrderController extends Controller
                     'order' => $order,
                     'payment' => $orderPayment,
                     'deliveryCharge' => $deliveryCharge,
+                    'user' => $user,
                 ],
             ], 200);
         } catch (\Throwable $e) {
